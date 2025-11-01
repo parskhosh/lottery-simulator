@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="title">شبیه‌ساز لاتاری حرفه‌ای</title>
+  <style>
+    /* Inline theme to ensure it loads immediately */
+    html[data-theme="dark"] {
+      --page: #0C111C;
+      --box: #121829;
+      --border: #171F35;
+      --primary: #06FFFF;
+      --secondary: #6EA9FF;
+      --error: #D73D5E;
+      --text: #E8F0FF;
+      --muted: #97A4C7;
+      --ring: rgba(110, 169, 255, 0.35);
+      --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    }
+    html[data-theme="light"] {
+      --page: #F7FAFF;
+      --box: #FFFFFF;
+      --border: #DDE6F7;
+      --primary: #00C9C9;
+      --secondary: #4F8DFF;
+      --error: #D73D5E;
+      --text: #0D1B2A;
+      --muted: #5A6A85;
+      --ring: rgba(79, 141, 255, 0.25);
+      --shadow: 0 10px 30px rgba(13, 27, 42, 0.08);
+    }
+    body {
+      background: var(--page);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/fontawesome.min.css">
+  <link rel="stylesheet" href="./css/solid.min.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/theme.css">
+</head>
+<body>
+  <div id="app" class="layout">
+    <!-- Column 1: Settings & Controls -->
+    <aside class="column col-settings">
+      <div class="panel run-controls">
+        <h3 data-i18n="runControls">کنترل اجرا</h3>
+        <div class="button-group">
+          <button id="btn-start" data-hook="btn-start" class="btn btn-primary" data-i18n="start">شروع</button>
+          <button id="btn-pause" data-hook="btn-pause" class="btn btn-secondary" disabled data-i18n="pause">توقف موقت</button>
+          <button id="btn-stop" data-hook="btn-stop" class="btn btn-danger" disabled data-i18n="stop">توقف</button>
+          <button id="btn-reset" data-hook="btn-reset" class="btn btn-warn" data-i18n="reset">بازنشانی</button>
+          <button id="btn-export" data-hook="btn-export" class="btn btn-accent" data-i18n="exportCsv">خروجی CSV</button>
+        </div>
+        <div class="status-bar">
+          <span class="status-chip" id="status-chip" data-i18n="statusIdle">بیکار</span>
+          <span class="rate-display" id="rate-display">0 <span data-i18n="ticketsSec">تیکت/ثانیه</span></span>
+          <span class="elapsed" id="elapsed-display">00:00</span>
+        </div>
+        <div class="control-row">
+          <label class="toggle">
+            <input type="checkbox" id="stop-on-jackpot">
+            <span data-i18n="stopOnJackpot">توقف در جکپات</span>
+          </label>
+        </div>
+        <div class="control-row">
+          <label data-i18n="runLimit">حد اجرا:</label>
+          <select id="limit-kind">
+            <option value="tickets" data-i18n="tickets">تیکت</option>
+            <option value="minutes" data-i18n="minutes">دقیقه</option>
+            <option value="days" data-i18n="days">روز</option>
+          </select>
+          <input type="number" id="limit-value" min="0" value="0" placeholder="0=نامحدود">
+        </div>
+      </div>
+
+      <div class="panel resource-knobs">
+        <h3 data-i18n="resourceSettings">تنظیمات منابع</h3>
+        <div class="control-row">
+          <label data-i18n="batchSize">اندازه دسته:</label>
+          <input type="number" id="batch-size" min="200" max="10000" value="2000">
+        </div>
+        <div class="control-row">
+          <label data-i18n="uiDelay">تأخیر رابط:</label>
+          <input type="number" id="ui-delay" min="50" max="1000" value="200" step="50">
+          <span class="unit">ms</span>
+        </div>
+        <div class="control-row">
+          <label data-i18n="maxLogRows">حد ردیف‌های لاگ:</label>
+          <input type="number" id="max-log-rows" min="1000" max="500000" value="50000" step="1000">
+        </div>
+        <div class="control-row">
+          <label data-i18n="chartCap">حد داده‌های نمودار:</label>
+          <input type="number" id="chart-cap" min="500" max="10000" value="2000" step="500">
+        </div>
+        <div class="control-row">
+          <label class="toggle">
+            <input type="checkbox" id="eco-mode">
+            <span data-i18n="ecoMode">حالت اکو</span>
+          </label>
+        </div>
+        <div class="control-row" id="eco-rate-row" style="display:none">
+          <label data-i18n="rateCap">حد نرخ:</label>
+          <input type="number" id="eco-rate-cap" min="10" max="10000" value="500" step="10">
+          <span class="unit">ت/ث</span>
+        </div>
+      </div>
+
+      <div class="panel game-settings">
+        <h3 data-i18n="gameSettings">تنظیمات بازی</h3>
+        <div class="control-row">
+          <label data-i18n="preset">پیش‌تنظیم:</label>
+          <select id="game-preset">
+            <option value="classic6" data-i18n="classic6">کلاسیک 6/49</option>
+            <option value="mini5" data-i18n="mini5">مینی 5/35</option>
+            <option value="custom" data-i18n="custom">سفارشی</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <label data-i18n="maxMain">حد بالا:</label>
+          <input type="number" id="max-main" min="5" max="100" value="49">
+        </div>
+        <div class="control-row">
+          <label data-i18n="mainCount">تعداد انتخاب:</label>
+          <input type="number" id="main-count" min="3" max="20" value="6">
+        </div>
+        <div class="control-row">
+          <label class="toggle">
+            <input type="checkbox" id="has-bonus">
+            <span data-i18n="hasBonus">شماره جایزه</span>
+          </label>
+        </div>
+        <div class="control-row" id="max-bonus-row" style="display:none">
+          <label data-i18n="maxBonus">حد بالای جایزه:</label>
+          <input type="number" id="max-bonus" min="1" max="50" value="10">
+        </div>
+        <div class="control-row">
+          <label data-i18n="ticketPrice">قیمت تیکت:</label>
+          <input type="number" id="ticket-price" min="0.01" step="0.01" value="2.00">
+          <span id="ticket-price-sym" class="unit">$</span>
+        </div>
+        <div class="control-row">
+          <label data-i18n="ticketsPerDay">تیکت/روز:</label>
+          <input type="number" id="tickets-per-day" min="0" value="0" placeholder="0=نامحدود">
+        </div>
+        <div class="control-row">
+          <label data-i18n="totalTickets">کل تیکت‌ها:</label>
+          <input type="number" id="total-tickets" min="0" value="0" placeholder="0=نامحدود">
+        </div>
+      </div>
+
+      <div class="panel prize-map">
+        <h3 data-i18n="prizeMap">نقشه جوایز</h3>
+        <textarea id="prize-map-text" rows="8" placeholder="m[,b]=JACKPOT|FREE_PLAY|&lt;minor&gt;"></textarea>
+        <div class="button-group">
+          <button id="btn-parse-prize" class="btn btn-accent" data-i18n="parse">تجزیه</button>
+          <button id="btn-sync-prize" class="btn btn-primary" data-i18n="sync">همگام‌سازی</button>
+        </div>
+        <div id="prize-map-visual" class="prize-visual"></div>
+      </div>
+
+      <div class="panel display-locale">
+        <h3 data-i18n="displayLocale">نمایش و زبان</h3>
+        <div class="control-row">
+          <label data-i18n="theme">تم:</label>
+          <select id="theme-select" data-hook="toggle-theme">
+            <option value="dark" data-i18n="dark">تاریک</option>
+            <option value="light" data-i18n="light">روشن</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <label data-i18n="language">زبان:</label>
+          <select id="lang-select" data-hook="toggle-lang">
+            <option value="fa" data-i18n="persian">فارسی</option>
+            <option value="en" data-i18n="english">English</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <button id="btn-currency" class="btn btn-accent" data-i18n="currency">ارز</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Column 2: Ticket Builder & Live Purchase -->
+    <section class="column col-ticket">
+      <div class="panel ticket-builder">
+        <h3 data-i18n="ticketBuilder">سازنده تیکت</h3>
+        <div class="mode-selector">
+          <div class="segmented-control">
+            <button class="segmented-btn active" data-mode="select" data-i18n="select">انتخاب</button>
+            <button class="segmented-btn" data-mode="pin" data-i18n="pin">پین</button>
+            <button class="segmented-btn" data-mode="prefer" data-i18n="prefer">ترجیح</button>
+            <button class="segmented-btn" data-mode="exclude" data-i18n="exclude">حذف</button>
+          </div>
+        </div>
+        <div class="ticket-controls">
+          <button id="btn-quick-pick" class="btn btn-primary" data-i18n="quickPick">انتخاب سریع</button>
+          <button id="btn-clear" class="btn btn-warn" data-i18n="clear">پاک کردن</button>
+          <button id="btn-clear-pinned" class="btn btn-sm" data-i18n="clearPinned">پاک کردن پین‌ها</button>
+          <button id="btn-clear-preferred" class="btn btn-sm" data-i18n="clearPreferred">پاک کردن ترجیحات</button>
+          <button id="btn-clear-excluded" class="btn btn-sm" data-i18n="clearExcluded">پاک کردن حذف‌ها</button>
+        </div>
+        <div class="counters">
+          <span class="counter-chip" id="pinned-counter">پین: 0/<span id="pinned-max">6</span></span>
+          <span class="counter-chip" id="preferred-counter">ترجیح: 0</span>
+          <span class="counter-chip" id="excluded-counter">حذف: 0</span>
+        </div>
+        <div class="number-grid" id="number-grid"></div>
+        <div class="ticket-actions">
+          <button id="btn-add-ticket" class="btn btn-primary" disabled data-i18n="addTicket">افزودن تیکت</button>
+          <button id="btn-clear-queue" class="btn btn-warn" data-i18n="clearQueue">پاک کردن صف</button>
+        </div>
+        <div class="range-selector">
+          <h4 data-i18n="rangeSelector">انتخاب محدوده</h4>
+          <div class="range-inputs">
+            <input type="number" id="range-min" placeholder="min" min="1">
+            <span>-</span>
+            <input type="number" id="range-max" placeholder="max">
+            <button id="btn-add-range" class="btn btn-sm" data-i18n="add">افزودن</button>
+          </div>
+          <div class="filter-controls">
+            <label class="toggle">
+              <input type="checkbox" id="filter-even">
+              <span data-i18n="evenOnly">فقط زوج</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="filter-odd">
+              <span data-i18n="oddOnly">فقط فرد</span>
+            </label>
+          </div>
+          <div class="smart-controls">
+            <input type="number" id="smart-count" min="1" placeholder="N" value="10">
+            <button id="btn-generate-range" class="btn btn-sm" data-i18n="generateTickets">تولید تیکت</button>
+          </div>
+          <div id="ranges-list" class="ranges-list"></div>
+        </div>
+        <div class="queue-display">
+          <h4 data-i18n="ticketQueue">صف تیکت‌ها</h4>
+          <div id="queue-chips" class="queue-chips"></div>
+        </div>
+        <div class="live-feedback">
+          <div id="current-ticket" class="current-ticket"></div>
+          <div id="day-result" class="day-result"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Column 3: Analytics & Logs -->
+    <section class="column col-analytics">
+      <div class="panel kpis">
+        <h3 data-i18n="analytics">تحلیل</h3>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-label" data-i18n="tickets">تیکت‌ها</span>
+            <span class="kpi-value" id="kpi-tickets">0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label" data-i18n="days">روزها</span>
+            <span class="kpi-value" id="kpi-days">0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label" data-i18n="jackpots">جکپات‌ها</span>
+            <span class="kpi-value" id="kpi-jackpots">0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label" data-i18n="spent">خرج شده</span>
+            <span class="kpi-value" id="kpi-spent">$0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label" data-i18n="paid">پرداخت شده</span>
+            <span class="kpi-value" id="kpi-paid">$0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label" data-i18n="net">خالص</span>
+            <span class="kpi-value" id="kpi-net">$0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label" data-i18n="roi">ROI</span>
+            <span class="kpi-value" id="kpi-roi">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel charts">
+        <h3 data-i18n="charts">نمودارها</h3>
+        <div class="chart-container">
+          <canvas id="chart-pl" class="chart-canvas"></canvas>
+          <label data-i18n="profitLoss">سود/زیان</label>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-roi" class="chart-canvas"></canvas>
+          <label data-i18n="roi">ROI (%)</label>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-daily" class="chart-canvas"></canvas>
+          <label data-i18n="dailyPnL">سود/زیان روزانه</label>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-hits" class="chart-canvas"></canvas>
+          <label data-i18n="hitDistribution">توزیع برخورد</label>
+        </div>
+      </div>
+
+      <div class="panel logs">
+        <h3 data-i18n="logs">لاگ‌ها</h3>
+        <div class="log-controls">
+          <label class="toggle">
+            <input type="checkbox" id="log-wins-only">
+            <span data-i18n="winsOnly">فقط بردها</span>
+          </label>
+          <input type="number" id="log-min-prize" placeholder="حداقل جایزه" min="0">
+          <input type="number" id="log-max-prize" placeholder="حداکثر جایزه" min="0">
+          <input type="number" id="log-min-match" placeholder="حداقل تطابق" min="0" max="20">
+          <input type="text" id="log-search" placeholder="جستجو...">
+        </div>
+        <div class="log-tabs" data-hook="tabs">
+          <button class="log-tab active" data-tab="purchases" data-i18n="purchases">خریدها</button>
+          <button class="log-tab" data-tab="wins" data-i18n="wins">بردها</button>
+        </div>
+        <div class="log-viewport" id="log-viewport">
+          <div data-panel="purchases" id="panel-purchases">
+            <div class="log-spacer-top" id="log-spacer-top"></div>
+            <div class="log-content" id="log-content"></div>
+            <div class="log-spacer-bottom" id="log-spacer-bottom"></div>
+          </div>
+          <div data-panel="wins" id="panel-wins" hidden>
+            <div class="log-spacer-top" id="log-spacer-top-wins"></div>
+            <div class="log-content" id="log-content-wins"></div>
+            <div class="log-spacer-bottom" id="log-spacer-bottom-wins"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Currency Modal -->
+  <div id="currency-modal" class="modal">
+    <div class="modal-content">
+      <h3 data-i18n="currencySettings">تنظیمات ارز</h3>
+      <div class="currency-form">
+        <div class="form-group">
+          <label data-i18n="baseCurrency">ارز پایه:</label>
+          <input type="text" id="base-code" placeholder="USD" maxlength="3">
+          <input type="text" id="base-sym" placeholder="$" maxlength="5">
+          <input type="number" id="base-minor" placeholder="100" value="100">
+        </div>
+        <div class="form-group">
+          <label data-i18n="secondaryCurrency">ارز ثانویه:</label>
+          <input type="text" id="sec-code" placeholder="IRR" maxlength="3">
+          <input type="text" id="sec-sym" placeholder="﷼" maxlength="5">
+          <input type="number" id="sec-minor" placeholder="1" value="1">
+          <input type="number" id="sec-rate" placeholder="1.00" step="0.01" value="1.00">
+        </div>
+        <div class="form-group">
+          <label class="toggle">
+            <input type="checkbox" id="show-both-currency">
+            <span data-i18n="showBoth">نمایش هر دو</span>
+          </label>
+        </div>
+        <div class="button-group">
+          <button id="btn-currency-save" class="btn btn-primary" data-i18n="save">ذخیره</button>
+          <button id="btn-currency-cancel" class="btn btn-secondary" data-i18n="cancel">لغو</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="./js/app.js"></script>
+  
+  <!-- Font Awesome Test -->
+  <div style="display:none">
+    <i class="fa-solid fa-play" style="color:var(--primary)"></i>
+    <i class="fa-solid fa-pause" style="color:var(--secondary)"></i>
+    <i class="fa-solid fa-triangle-exclamation" style="color:var(--error)"></i>
+  </div>
+</body>
+</html>
+

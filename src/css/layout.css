@@ -1,0 +1,132 @@
+/* Layout Grid */
+.layout {
+  display: grid;
+  grid-template-columns: 25% 37.5% 37.5%;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  min-height: 100vh;
+  max-width: 1920px;
+  margin: 0 auto;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .col-analytics {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 750px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .col-analytics {
+    grid-column: 1;
+  }
+}
+
+/* Panels */
+.panel {
+  background: var(--box);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.panel:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.panel h3 {
+  margin-top: 0;
+}
+
+/* Control Rows */
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.control-row label {
+  min-width: 120px;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.control-row input[type="number"],
+.control-row input[type="text"],
+.control-row select {
+  flex: 1;
+  min-width: 100px;
+}
+
+/* Button Groups */
+.button-group {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-md);
+}
+
+/* Status Bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+  margin-bottom: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.status-chip {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--muted);
+  color: var(--page);
+}
+
+.status-chip.running {
+  background: var(--ok);
+  color: var(--page);
+}
+
+.status-chip.paused {
+  background: var(--warn);
+  color: var(--page);
+}
+
+.status-chip.stopped,
+.status-chip.done {
+  background: var(--primary);
+  color: #08121e;
+}
+
+.rate-display,
+.elapsed {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  font-family: monospace;
+}
+

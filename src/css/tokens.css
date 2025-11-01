@@ -1,0 +1,64 @@
+/* Color Tokens - Must load first */
+/* Also support html selector for inline styles */
+:root[data-theme="dark"],
+html[data-theme="dark"] {
+  --page: #0C111C;
+  --box: #121829;
+  --border: #171F35;
+  --primary: #06FFFF;
+  --secondary: #6EA9FF;
+  --error: #D73D5E;
+  --text: #E8F0FF;
+  --muted: #97A4C7;
+  --ring: rgba(110, 169, 255, 0.35);
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  --ok: #2BD67B;
+  --warn: #FFB85C;
+  --hover: #1A2332;
+}
+
+:root[data-theme="light"],
+html[data-theme="light"] {
+  --page: #F7FAFF;
+  --box: #FFFFFF;
+  --border: #DDE6F7;
+  --primary: #00C9C9;
+  --secondary: #4F8DFF;
+  --error: #D73D5E;
+  --text: #0D1B2A;
+  --muted: #5A6A85;
+  --ring: rgba(79, 141, 255, 0.25);
+  --shadow: 0 10px 30px rgba(13, 27, 42, 0.08);
+  --ok: #2BD67B;
+  --warn: #FFB85C;
+  --hover: #F0F4F8;
+}
+
+/* Base styles using tokens */
+body {
+  background: var(--page);
+  color: var(--text);
+}
+
+.card {
+  background: var(--box);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #08121e !important;
+}
+
+.btn-ghost {
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+.badge {
+  background: color-mix(in oklab, var(--secondary) 18%, transparent);
+  border: 1px solid var(--border);
+}
+

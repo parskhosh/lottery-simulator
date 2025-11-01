@@ -1,0 +1,48 @@
+/* Font Awesome - Minimal Implementation */
+@font-face {
+  font-family: 'Font Awesome 6 Free';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('../webfonts/fa-solid-900.woff2') format('woff2'),
+       url('../webfonts/fa-solid-900.ttf') format('truetype');
+}
+
+/* Base Font Awesome styles */
+.fa-solid {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  display: inline-block;
+  font-style: normal;
+  font-variant: normal;
+  text-rendering: auto;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Icon content mapping - using Unicode fallback */
+.fa-solid.fa-play::before { content: '\f04b'; } /* Play icon */
+.fa-solid.fa-pause::before { content: '\f04c'; } /* Pause icon */
+.fa-solid.fa-stop::before { content: '\f04d'; } /* Stop icon */
+.fa-solid.fa-rotate-left::before,
+.fa-solid.fa-rotate::before { content: '\f0e2'; } /* Reset icon */
+.fa-solid.fa-download::before { content: '\f019'; } /* Download icon */
+.fa-solid.fa-triangle-exclamation::before { content: '\f071'; } /* Warning icon */
+
+/* Fallback for browsers that don't support woff2 */
+@supports not (font-display: block) {
+  .fa-solid::before {
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+  }
+}
+
+/* If fonts don't load, use Unicode fallbacks */
+.fa-solid.fa-play::before { content: '▶'; }
+.fa-solid.fa-pause::before { content: '⏸'; }
+.fa-solid.fa-stop::before { content: '⏹'; }
+.fa-solid.fa-rotate-left::before,
+.fa-solid.fa-rotate::before { content: '↶'; }
+.fa-solid.fa-download::before { content: '⬇'; }
+.fa-solid.fa-triangle-exclamation::before { content: '⚠'; }

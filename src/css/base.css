@@ -1,0 +1,127 @@
+/* Reset & Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Color tokens are now in tokens.css - kept for compatibility only */
+:root[data-theme="dark"],
+html[data-theme="dark"] {
+  /* Legacy aliases for compatibility */
+  --bg: var(--page);
+  --panel: var(--box);
+  --card: var(--box);
+  --accent: var(--primary);
+  --accent2: var(--secondary);
+  --ok: #2BD67B;
+  --warn: #FFB85C;
+  --danger: var(--error);
+  --text-dim: var(--muted);
+  --hover: #1A2332;
+}
+
+:root[data-theme="light"] {
+  --page: #F7FAFF;
+  --box: #FFFFFF;
+  --border: #DDE6F7;
+  --primary: #00C9C9;
+  --secondary: #4F8DFF;
+  --error: #D73D5E;
+  --text: #0D1B2A;
+  --muted: #5A6A85;
+  --ring: rgba(79, 141, 255, 0.25);
+  --shadow: 0 10px 30px rgba(13, 27, 42, 0.08);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.08);
+  
+  /* Legacy aliases for compatibility */
+  --bg: var(--page);
+  --panel: var(--box);
+  --card: var(--box);
+  --accent: var(--primary);
+  --accent2: var(--secondary);
+  --ok: #2BD67B;
+  --warn: #FFB85C;
+  --danger: var(--error);
+  --text-dim: var(--muted);
+  --hover: #F0F4F8;
+}
+
+:root {
+  /* Typography */
+  --radius: 18px;
+  --fa: "Peyda", "Vazirmatn", Tahoma, sans-serif;
+  --en: "Roboto", "Segoe UI", Arial, sans-serif;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* Transitions */
+  --transition: 150ms ease;
+  --transition-slow: 250ms ease;
+}
+
+/* body styles are in tokens.css - only add non-color styles here */
+body {
+  font-family: var(--fa);
+  line-height: 1.6;
+  overflow-x: hidden;
+  transition: background-color var(--transition-slow), color var(--transition-slow);
+}
+
+[dir="ltr"] body {
+  font-family: var(--en);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: var(--spacing-sm);
+}
+
+h3 {
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-bottom: var(--spacing-md);
+}
+
+p {
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--panel);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Focus Styles */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
