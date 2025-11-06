@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Professional Lottery Simulator</title>
+  <style>
+    :root {
+      /* Light theme */
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8f9fa;
+      --bg-tertiary: #e9ecef;
+      --text-primary: #212529;
+      --text-secondary: #495057;
+      --text-tertiary: #6c757d;
+      --border-color: #dee2e6;
+      --card-bg: #ffffff;
+      --accent-primary: #4361ee;
+      --accent-secondary: #3f37c9;
+      --success: #4cc9f0;
+      --warning: #f72585;
+      --danger: #e63946;
+      --info: #4895ef;
+      --chart-line: #4361ee;
+      --chart-zero: #adb5bd;
+      --progress-bg: #e9ecef;
+      --progress-fill: linear-gradient(90deg, #4361ee, #3a0ca3);
+      --run-strip-bg: #f8f9fa;
+      --run-strip-border: #dee2e6;
+      --shadow: rgba(0, 0, 0, 0.1);
+      --transition: all 0.3s ease;
+    }
+
+    [data-theme="dark"] {
+      /* Dark theme */
+      --bg-primary: #121212;
+      --bg-secondary: #1e1e1e;
+      --bg-tertiary: #2d2d2d;
+      --text-primary: #e0e0e0;
+      --text-secondary: #b0b0b0;
+      --text-tertiary: #808080;
+      --border-color: #333333;
+      --card-bg: #1a1a1a;
+      --accent-primary: #4cc9f0;
+      --accent-secondary: #4895ef;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --info: #60a5fa;
+      --chart-line: #4cc9f0;
+      --chart-zero: #555555;
+      --progress-bg: #2d2d2d;
+      --progress-fill: linear-gradient(90deg, #4cc9f0, #4895ef);
+      --run-strip-bg: #1a1a1a;
+      --run-strip-border: #333333;
+      --shadow: rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      transition: var(--transition);
+      min-height: 100vh;
+      padding-top: 70px;
+    }
+
+    body[dir="rtl"] {
+      font-family: 'Vazirmatn', 'Peyda', Tahoma, sans-serif;
+    }
+
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-Regular.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Peyda';
+      src: url('https://cdn.jsdelivr.net/gh/rastikerdar/peyda-font@v1.0.0/Peyda-Regular.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    /* Run Strip */
+    .run-strip {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--run-strip-bg);
+      border-bottom: 1px solid var(--run-strip-border);
+      padding: 12px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      z-index: 1000;
+      box-shadow: 0 2px 10px var(--shadow);
+    }
+
+    .run-strip > * {
+      margin: 0 4px;
+    }
+
+    .run-strip button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-weight: 600;
+      transition: var(--transition);
+    }
+
+    .run-strip button:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .run-strip button.primary {
+      background: var(--accent-primary);
+      color: white;
+      border-color: var(--accent-primary);
+    }
+
+    .run-strip button.primary:hover {
+      background: var(--accent-secondary);
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: var(--bg-tertiary);
+      font-size: 0.85rem;
+      gap: 8px;
+    }
+
+    .status-chip.running {
+      color: var(--success);
+    }
+
+    .status-chip.paused {
+      color: var(--warning);
+    }
+
+    .status-chip.idle {
+      color: var(--text-tertiary);
+    }
+
+    /* Main Layout */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .mode-toggle {
+      display: flex;
+      background: var(--bg-tertiary);
+      border-radius: 30px;
+      padding: 4px;
+    }
+
+    .mode-toggle button {
+      padding: 8px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-weight: 600;
+      border-radius: 26px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .mode-toggle button.active {
+      background: var(--accent-primary);
+      color: white;
+    }
+
+    .lang-toggle {
+      display: flex;
+      gap: 8px;
+    }
+
+    .lang-toggle button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .lang-toggle button.active {
+      background: var(--accent-primary);
+      color: white;
+      border-color: var(--accent-primary);
+    }
+
+    /* Dashboard Grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .target-chips {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .target-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      background: var(--bg-tertiary);
+      font-size: 0.9rem;
+    }
+
+    .target-chip.main {
+      color: var(--accent-primary);
+    }
+
+    .target-chip.bonus {
+      color: var(--info);
+    }
+
+    .roll-btn {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: 1.2rem;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: var(--transition);
+    }
+
+    .roll-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      text-align: center;
+      padding: 16px;
+      border-radius: 12px;
+      background: var(--bg-tertiary);
+    }
+
+    .kpi-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin: 8px 0;
+    }
+
+    .kpi-label {
+      font-size: 0.85rem;
+      color: var(--text-tertiary);
+    }
+
+    .kpi-card.net-positive .kpi-value {
+      color: var(--success);
+    }
+
+    .kpi-card.net-negative .kpi-value {
+      color: var(--danger);
+    }
+
+    .progress-container {
+      margin: 20px 0;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar {
+      height: 12px;
+      background: var(--progress-bg);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--progress-fill);
+      border-radius: 6px;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+
+    .chart-container {
+      height: 200px;
+      position: relative;
+      margin: 20px 0;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .log-container {
+      height: 200px;
+      overflow: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--bg-tertiary);
+    }
+
+    tr:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition);
+    }
+
+    .btn:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .btn.export {
+      background: var(--accent-primary);
+      color: white;
+      border-color: var(--accent-primary);
+    }
+
+    .btn.export:hover {
+      background: var(--accent-secondary);
+    }
+
+    /* Advanced Mode */
+    .advanced-only {
+      display: none;
+    }
+
+    body.advanced .advanced-only {
+      display: block;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin: 24px 0;
+    }
+
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .insight-card {
+      padding: 16px;
+      border-radius: 12px;
+      background: var(--bg-tertiary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .run-strip {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
+    /* Animations */
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(67, 97, 238, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0); }
+    }
+
+    .pulse {
+      animation: pulse 1.5s infinite;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--card-bg);
+      color: var(--text-primary);
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px var(--shadow);
+      border: 1px solid var(--border-color);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+      z-index: 2000;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Currency Badge */
+    .currency-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--bg-tertiary);
+      margin-left: 4px;
+    }
+
+    body[dir="rtl"] .currency-badge {
+      margin-left: 0;
+      margin-right: 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Run Strip -->
+  <div class="run-strip">
+    <div class="status-chip idle">
+      <span class="session-id">ID: LS-001</span>
+      <span class="status-text">Idle</span>
+      <span class="rate">0 tickets/sec</span>
+    </div>
+    
+    <button class="primary start-btn">Start</button>
+    <button class="pause-btn">Pause</button>
+    <button class="reset-btn">Reset</button>
+    
+    <label class="switch">
+      <input type="checkbox" class="stop-jackpot">
+      <span>Stop on Jackpot</span>
+    </label>
+    
+    <div class="quick-controls">
+      <select class="preset-select">
+        <option value="6/49">6/49</option>
+        <option value="5/90">5/90</option>
+        <option value="powerball">Powerball</option>
+      </select>
+      
+      <input type="number" class="ticket-price" value="2" min="0.01" step="0.01" placeholder="Price">
+      <input type="number" class="tickets-day" value="100" min="1" placeholder="Tickets/Day">
+      <input type="number" class="total-tickets" value="10000" min="1" placeholder="Total">
+    </div>
+  </div>
+  
+  <!-- Main Content -->
+  <div class="container">
+    <div class="header">
+      <h1 class="title">Professional Lottery Simulator</h1>
+      
+      <div class="controls">
+        <div class="mode-toggle">
+          <button class="simple-mode active">Simple</button>
+          <button class="advanced-mode">Advanced</button>
+        </div>
+        
+        <div class="lang-toggle">
+          <button class="lang-en active">EN</button>
+          <button class="lang-fa">FA</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Target Section -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Target Numbers</h2>
+        <button class="roll-btn">🎲</button>
+      </div>
+      
+      <div class="target-chips">
+        <div class="target-chip main">
+          <span>Main:</span>
+          <span>12, 24, 35, 41, 48</span>
+        </div>
+        <div class="target-chip bonus">
+          <span>Bonus:</span>
+          <span>7</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Tickets</div>
+        <div class="kpi-value">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Days</div>
+        <div class="kpi-value">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Jackpots</div>
+        <div class="kpi-value">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Spent</div>
+        <div class="kpi-value">$0.00</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Paid</div>
+        <div class="kpi-value">$0.00</div>
+      </div>
+      <div class="kpi-card net-negative">
+        <div class="kpi-label">Net</div>
+        <div class="kpi-value">-$0.00</div>
+      </div>
+    </div>
+    
+    <!-- Progress Today -->
+    <div class="card">
+      <div class="progress-header">
+        <span>Tickets Today: <span class="today-count">0</span>/100</span>
+        <span>Progress</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: 0%"></div>
+      </div>
+    </div>
+    
+    <!-- Profit/Loss Chart -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Profit/Loss</h2>
+      </div>
+      <div class="chart-container">
+        <canvas id="plChart"></canvas>
+      </div>
+    </div>
+    
+    <!-- Mini Log -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Recent Activity</h2>
+        <button class="btn export">Export CSV</button>
+      </div>
+      <div class="log-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket</th>
+              <th>Numbers</th>
+              <th>Match</th>
+              <th>Prize</th>
+              <th>Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>#1</td>
+              <td>03, 17, 22, 31, 44</td>
+              <td>2</td>
+              <td>$0.00</td>
+              <td>-$2.00</td>
+            </tr>
+            <tr>
+              <td>#2</td>
+              <td>08, 19, 27, 33, 49</td>
+              <td>1</td>
+              <td>$0.00</td>
+              <td>-$2.00</td>
+            </tr>
+            <tr>
+              <td>#3</td>
+              <td>12, 24, 35, 41, 48</td>
+              <td>5</td>
+              <td>$1,000,000.00</td>
+              <td>+$999,998.00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- Advanced Sections -->
+    <div class="advanced-only">
+      <!-- Additional Charts -->
+      <div class="chart-grid">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">ROI</h2>
+          </div>
+          <div class="chart-container">
+            <canvas id="roiChart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Daily P&L</h2>
+          </div>
+          <div class="chart-container">
+            <canvas id="dailyChart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Insights -->
+      <div class="insights-grid">
+        <div class="insight-card">
+          <h3>Win Probability</h3>
+          <p>Your chance of winning the jackpot is 1 in 13,983,816</p>
+        </div>
+        <div class="insight-card">
+          <h3>Expected Value</h3>
+          <p>On average, you lose $1.20 per ticket played</p>
+        </div>
+        <div class="insight-card">
+          <h3>Hot Numbers</h3>
+          <p>Number 23 has appeared 12% more than average</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">Simulation started!</div>
+  
+  <script>
+    // ======================
+    // I18N Dictionary
+    // ======================
+    const i18n = {
+      en: {
+        title: "Professional Lottery Simulator",
+        target: "Target Numbers",
+        tickets: "Tickets",
+        days: "Days",
+        jackpots: "Jackpots",
+        spent: "Spent",
+        paid: "Paid",
+        net: "Net",
+        today: "Today",
+        progress: "Progress",
+        plChart: "Profit/Loss",
+        activity: "Recent Activity",
+        roi: "ROI",
+        daily: "Daily P&L",
+        winProb: "Win Probability",
+        expectedValue: "Expected Value",
+        hotNumbers: "Hot Numbers",
+        start: "Start",
+        pause: "Pause",
+        reset: "Reset",
+        stopJackpot: "Stop on Jackpot",
+        simple: "Simple",
+        advanced: "Advanced",
+        en: "EN",
+        fa: "FA",
+        export: "Export CSV",
+        simulationStarted: "Simulation started!",
+        simulationPaused: "Simulation paused",
+        simulationReset: "Simulation reset",
+        jackpotHit: "Jackpot hit! 🎉"
+      },
+      fa: {
+        title: "شبیه‌ساز حرفه‌ای لاتاری",
+        target: "اعداد هدف",
+        tickets: "بلیط‌ها",
+        days: "روزها",
+        jackpots: "جک‌پات‌ها",
+        spent: "هزینه",
+        paid: "دریافتی",
+        net: "خالص",
+        today: "امروز",
+        progress: "پیشرفت",
+        plChart: "سود/زیان",
+        activity: "فعالیت اخیر",
+        roi: "بازده سرمایه",
+        daily: "سود/زیان روزانه",
+        winProb: "احتمال برد",
+        expectedValue: "ارزش مورد انتظار",
+        hotNumbers: "اعداد داغ",
+        start: "شروع",
+        pause: "توقف موقت",
+        reset: "بازنشانی",
+        stopJackpot: "توقف در جک‌پات",
+        simple: "ساده",
+        advanced: "پیشرفته",
+        en: "انگلیسی",
+        fa: "فارسی",
+        export: "خروجی CSV",
+        simulationStarted: "شبیه‌سازی شروع شد!",
+        simulationPaused: "شبیه‌سازی متوقف شد",
+        simulationReset: "شبیه‌سازی بازنشانی شد",
+        jackpotHit: "جک‌پات! 🎉"
+      }
+    };
+    
+    // ======================
+    // State Management
+    // ======================
+    let state = {
+      locale: 'en',
+      dir: 'ltr',
+      theme: 'light',
+      mode: 'simple',
+      running: false,
+      paused: false,
+      sessionId: 'LS-001',
+      tickets: 0,
+      days: 0,
+      jackpots: 0,
+      spent: 0,
+      paid: 0,
+      net: 0,
+      todayTickets: 0,
+      ticketsPerDay: 100,
+      totalTickets: 10000,
+      ticketPrice: 2,
+      stopOnJackpot: false,
+      currency: {
+        base: { code: 'USD', symbol: '$', minorUnit: 100 },
+        secondary: { code: 'EUR', symbol: '€', minorUnit: 100, rate: 0.93 }
+      },
+      showSecondary: false,
+      chartData: [],
+      logData: []
+    };
+    
+    // ======================
+    // DOM Elements
+    // ======================
+    const elements = {
+      body: document.body,
+      title: document.querySelector('.title'),
+      langEn: document.querySelector('.lang-en'),
+      langFa: document.querySelector('.lang-fa'),
+      simpleMode: document.querySelector('.simple-mode'),
+      advancedMode: document.querySelector('.advanced-mode'),
+      startBtn: document.querySelector('.start-btn'),
+      pauseBtn: document.querySelector('.pause-btn'),
+      resetBtn: document.querySelector('.reset-btn'),
+      stopJackpot: document.querySelector('.stop-jackpot'),
+      presetSelect: document.querySelector('.preset-select'),
+      ticketPrice: document.querySelector('.ticket-price'),
+      ticketsDay: document.querySelector('.tickets-day'),
+      totalTickets: document.querySelector('.total-tickets'),
+      sessionId: document.querySelector('.session-id'),
+      statusText: document.querySelector('.status-text'),
+      rate: document.querySelector('.rate'),
+      kpiTickets: document.querySelector('.kpi-grid .kpi-value:nth-child(2)'),
+      kpiDays: document.querySelector('.kpi-grid .kpi-value:nth-child(4)'),
+      kpiJackpots: document.querySelector('.kpi-grid .kpi-value:nth-child(6)'),
+      kpiSpent: document.querySelector('.kpi-grid .kpi-value:nth-child(8)'),
+      kpiPaid: document.querySelector('.kpi-grid .kpi-value:nth-child(10)'),
+      kpiNet: document.querySelector('.kpi-grid .kpi-value:nth-child(12)'),
+      todayCount: document.querySelector('.today-count'),
+      progressFill: document.querySelector('.progress-fill'),
+      toast: document.getElementById('toast'),
+      plChart: document.getElementById('plChart'),
+      roiChart: document.getElementById('roiChart'),
+      dailyChart: document.getElementById('dailyChart')
+    };
+    
+    // ======================
+    // Localization
+    // ======================
+    function setLocale(locale) {
+      state.locale = locale;
+      state.dir = locale === 'fa' ? 'rtl' : 'ltr';
+      
+      // Update body attributes
+      elements.body.setAttribute('lang', locale);
+      elements.body.setAttribute('dir', state.dir);
+      
+      // Update UI text
+      elements.title.textContent = i18n[locale].title;
+      document.querySelector('.card-title:nth-of-type(1)').textContent = i18n[locale].target;
+      document.querySelector('.kpi-label:nth-of-type(1)').textContent = i18n[locale].tickets;
+      document.querySelector('.kpi-label:nth-of-type(2)').textContent = i18n[locale].days;
+      document.querySelector('.kpi-label:nth-of-type(3)').textContent = i18n[locale].jackpots;
+      document.querySelector('.kpi-label:nth-of-type(4)').textContent = i18n[locale].spent;
+      document.querySelector('.kpi-label:nth-of-type(5)').textContent = i18n[locale].paid;
+      document.querySelector('.kpi-label:nth-of-type(6)').textContent = i18n[locale].net;
+      document.querySelector('.progress-header span:first-child').innerHTML = 
+        `${i18n[locale].today}: <span class="today-count">0</span>/${state.ticketsPerDay}`;
+      document.querySelector('.progress-header span:last-child').textContent = i18n[locale].progress;
+      document.querySelector('.card-title:nth-of-type(2)').textContent = i18n[locale].plChart;
+      document.querySelector('.card-title:nth-of-type(3)').textContent = i18n[locale].activity;
+      document.querySelector('.card-title:nth-of-type(4)').textContent = i18n[locale].roi;
+      document.querySelector('.card-title:nth-of-type(5)').textContent = i18n[locale].daily;
+      document.querySelector('.insight-card:nth-child(1) h3').textContent = i18n[locale].winProb;
+      document.querySelector('.insight-card:nth-child(2) h3').textContent = i18n[locale].expectedValue;
+      document.querySelector('.insight-card:nth-child(3) h3').textContent = i18n[locale].hotNumbers;
+      
+      // Update buttons
+      elements.startBtn.textContent = i18n[locale].start;
+      elements.pauseBtn.textContent = i18n[locale].pause;
+      elements.resetBtn.textContent = i18n[locale].reset;
+      document.querySelector('.switch span').textContent = i18n[locale].stopJackpot;
+      elements.simpleMode.textContent = i18n[locale].simple;
+      elements.advancedMode.textContent = i18n[locale].advanced;
+      elements.langEn.textContent = i18n[locale].en;
+      elements.langFa.textContent = i18n[locale].fa;
+      document.querySelector('.btn.export').textContent = i18n[locale].export;
+      
+      // Update active language button
+      elements.langEn.classList.toggle('active', locale === 'en');
+      elements.langFa.classList.toggle('active', locale === 'fa');
+    }
+    
+    // ======================
+    // Theme Management
+    // ======================
+    function setTheme(theme) {
+      state.theme = theme;
+      elements.body.setAttribute('data-theme', theme);
+    }
+    
+    // ======================
+    // Mode Toggle
+    // ======================
+    function setMode(mode) {
+      state.mode = mode;
+      elements.body.classList.toggle('advanced', mode === 'advanced');
+      elements.simpleMode.classList.toggle('active', mode === 'simple');
+      elements.advancedMode.classList.toggle('active', mode === 'advanced');
+    }
+    
+    // ======================
+    // UI Updates
+    // ======================
+    function updateUI() {
+      // Update KPIs
+      elements.kpiTickets.textContent = state.tickets.toLocaleString();
+      elements.kpiDays.textContent = state.days;
+      elements.kpiJackpots.textContent = state.jackpots;
+      
+      // Format currency
+      const spent = (state.spent / state.currency.base.minorUnit).toFixed(2);
+      const paid = (state.paid / state.currency.base.minorUnit).toFixed(2);
+      const net = (state.net / state.currency.base.minorUnit).toFixed(2);
+      
+      elements.kpiSpent.textContent = `${state.currency.base.symbol}${spent}`;
+      elements.kpiPaid.textContent = `${state.currency.base.symbol}${paid}`;
+      elements.kpiNet.textContent = `${state.net >= 0 ? '+' : ''}${state.currency.base.symbol}${net}`;
+      elements.kpiNet.closest('.kpi-card').className = 
+        `kpi-card ${state.net >= 0 ? 'net-positive' : 'net-negative'}`;
+      
+      // Update today progress
+      elements.todayCount.textContent = state.todayTickets;
+      const progress = Math.min(100, (state.todayTickets / state.ticketsPerDay) * 100);
+      elements.progressFill.style.width = `${progress}%`;
+      
+      // Update status
+      let statusClass = 'idle';
+      let statusText = 'Idle';
+      
+      if (state.running) {
+        statusClass = 'running';
+        statusText = 'Running';
+      } else if (state.paused) {
+        statusClass = 'paused';
+        statusText = 'Paused';
+      }
+      
+      elements.statusText.textContent = statusText;
+      elements.statusText.parentElement.className = `status-chip ${statusClass}`;
+      elements.sessionId.textContent = `ID: ${state.sessionId}`;
+      
+      // Update chart
+      drawChart();
+    }
+    
+    // ======================
+    // Chart Drawing
+    // ======================
+    function drawChart() {
+      const ctx = elements.plChart.getContext('2d');
+      const width = elements.plChart.width;
+      const height = elements.plChart.height;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, width, height);
+      
+      // Draw zero line
+      ctx.strokeStyle = 'var(--chart-zero)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width, height / 2);
+      ctx.stroke();
+      
+      // Draw data line
+      if (state.chartData.length > 1) {
+        ctx.strokeStyle = 'var(--chart-line)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        
+        // Find min and max for scaling
+        const values = state.chartData.map(d => d.net);
+        const min = Math.min(...values, 0);
+        const max = Math.max(...values, 0);
+        const range = max - min || 1;
+        
+        // Draw line
+        state.chartData.forEach((point, i) => {
+          const x = (i / (state.chartData.length - 1)) * width;
+          const y = height - ((point.net - min) / range) * height;
+          
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        
+        ctx.stroke();
+        
+        // Draw last point label
+        const last = state.chartData[state.chartData.length - 1];
+        const lastY = height - ((last.net - min) / range) * height;
+        ctx.fillStyle = 'var(--text-primary)';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(
+          `${state.currency.base.symbol}${(last.net / state.currency.base.minorUnit).toFixed(2)}`, 
+          width - 5, 
+          lastY - 5
+        );
+      }
+    }
+    
+    // ======================
+    // Toast Notifications
+    // ======================
+    function showToast(message) {
+      elements.toast.textContent = message;
+      elements.toast.classList.add('show');
+      
+      setTimeout(() => {
+        elements.toast.classList.remove('show');
+      }, 3000);
+    }
+    
+    // ======================
+    // Event Listeners
+    // ======================
+    elements.langEn.addEventListener('click', () => setLocale('en'));
+    elements.langFa.addEventListener('click', () => setLocale('fa'));
+    
+    elements.simpleMode.addEventListener('click', () => setMode('simple'));
+    elements.advancedMode.addEventListener('click', () => setMode('advanced'));
+    
+    elements.startBtn.addEventListener('click', () => {
+      state.running = true;
+      state.paused = false;
+      updateUI();
+      showToast(i18n[state.locale].simulationStarted);
+      
+      // Add pulse animation
+      elements.startBtn.classList.add('pulse');
+      setTimeout(() => elements.startBtn.classList.remove('pulse'), 1500);
+    });
+    
+    elements.pauseBtn.addEventListener('click', () => {
+      if (state.running) {
+        state.running = false;
+        state.paused = true;
+        showToast(i18n[state.locale].simulationPaused);
+      } else if (state.paused) {
+        state.running = true;
+        state.paused = false;
+        showToast(i18n[state.locale].simulationStarted);
+      }
+      updateUI();
+    });
+    
+    elements.resetBtn.addEventListener('click', () => {
+      // Reset only stats and log
+      state.tickets = 0;
+      state.days = 0;
+      state.jackpots = 0;
+      state.spent = 0;
+      state.paid = 0;
+      state.net = 0;
+      state.todayTickets = 0;
+      state.chartData = [];
+      state.logData = [];
+      updateUI();
+      showToast(i18n[state.locale].simulationReset);
+    });
+    
+    elements.stopJackpot.addEventListener('change', (e) => {
+      state.stopOnJackpot = e.target.checked;
+    });
+    
+    // Initialize
+    setLocale('en');
+    setTheme('light');
+    setMode('simple');
+    updateUI();
+    drawChart();
+    
+    // Simulate some data for demo
+    setTimeout(() => {
+      state.tickets = 1247;
+      state.days = 12;
+      state.jackpots = 0;
+      state.spent = 249400; // $2494.00
+      state.paid = 120000; // $1200.00
+      state.net = -129400; // -$1294.00
+      state.todayTickets = 47;
+      
+      // Generate sample chart data
+      state.chartData = [];
+      let net = 0;
+      for (let i = 0; i < 100; i++) {
+        const spent = 200; // $2.00
+        const paid = Math.random() > 0.9 ? 10000 : (Math.random() > 0.7 ? 200 : 0);
+        net += paid - spent;
+        state.chartData.push({ ticket: i, net });
+      }
+      
+      updateUI();
+    }, 500);
+  </script>
+</body>
+</html>

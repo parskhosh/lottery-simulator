@@ -1,21 +1,60 @@
 /* Prize Map Editor Styles */
 .prize-map-visual {
   margin-top: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.prize-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: rgba(110, 169, 255, 0.08);
+  border: 1px dashed var(--border);
+  border-radius: calc(var(--radius) / 2);
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.summary-item strong {
+  font-size: 1rem;
+  color: var(--text);
 }
 
 .prize-map-header {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  justify-content: space-between;
   flex-wrap: wrap;
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border);
 }
 
-.prize-map-header h4 {
+.prize-map-header-main h4 {
   margin: 0;
   font-size: 1rem;
   color: var(--text);
-  flex: 1;
+}
+
+.prize-map-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.prize-map-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .prize-map-table {
@@ -45,6 +84,10 @@
 
 .prize-row:hover {
   background: var(--hover);
+}
+
+.prize-row.missing {
+  background: rgba(215, 61, 94, 0.08);
 }
 
 .match-cell {
@@ -78,6 +121,37 @@
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--ring);
+}
+
+.prize-preset-select {
+  min-width: 160px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 3);
+  background: var(--box);
+  color: var(--text);
+}
+
+.prize-raw {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 2);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: color-mix(in srgb, var(--secondary) 10%, transparent);
+}
+
+.prize-raw summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--secondary);
+  outline: none;
+}
+
+.prize-raw summary::marker {
+  color: var(--secondary);
+}
+
+.prize-raw textarea {
+  margin-top: var(--spacing-sm);
 }
 
 .action-cell {

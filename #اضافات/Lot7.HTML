@@ -1,0 +1,1446 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Lottery Simulator — Pro (Simple/Advanced • RTL/LTR • FA/EN)</title>
+<style>
+  :root{
+    --bg:#0c0e13; --surface:#141a2a; --surface-2:#1b2234; --text:#ecf2ff; --muted:#9aa4b2;
+    --accent:#7dd3fc; --accent-2:#34d399; --danger:#ef4444; --ok:#10b981; --warn:#f59e0b;
+    --border:#20263a; --chip:#212a40; --stripe:#111728; --shadow:0 10px 24px rgba(0,0,0,.2);
+    --radius:12px; --row-h:36px;
+  }
+  [data-theme="light"]{
+    --bg:#f7f8fc; --surface:#ffffff; --surface-2:#f3f5fb; --text:#0f172a; --muted:#5b6473;
+    --accent:#0ea5e9; --accent-2:#22c55e; --danger:#dc2626; --ok:#16a34a; --warn:#d97706;
+    --border:#e6e8ef; --chip:#eef2f7; --stripe:#f8fafc; --shadow:0 8px 18px rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 ui-sans-serif,system-ui,"Inter","Vazirmatn","Segoe UI",Tahoma,Arial}
+  h1,h2,h3{margin:.25rem 0 .6rem} h1{font-size:1.25rem} h2{font-size:1.1rem} h3{font-size:1rem;color:var(--muted)}
+  .container{max-width:1280px;margin:0 auto;padding:16px}
+  .toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+  .brand{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{display:inline-flex;gap:6px;align-items:center;padding:.28rem .6rem;border-radius:999px;background:var(--chip);border:1px solid var(--border);color:var(--muted);font-weight:700;font-size:12px}
+  .btn{cursor:pointer;border-radius:10px;padding:.56rem .8rem;border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.08));color:var(--text);font-weight:800}
+  .btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#081018;border:none}
+  .btn.warn{background:linear-gradient(180deg,#f87171,#ef4444);color:#fff;border:none}
+  .btn.ghost{background:transparent}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  input,select,textarea{width:100%;padding:.52rem .6rem;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text)}
+  label{display:block;font-weight:800;margin:.15rem 0 .25rem}
+  .row{display:grid;grid-template-columns:360px 1fr;gap:16px}
+  @media(max-width:1024px){.row{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+  .muted{color:var(--muted)} .ok{color:var(--ok)} .danger{color:var(--danger)} .warn{color:var(--warn)}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .kpi{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  @media(max-width:1024px){.kpi{grid-template-columns:repeat(2,1fr)}}
+  .kpi .item{padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px}
+  .kpi .title{font-weight:900;color:var(--muted);font-size:11px;letter-spacing:.02em;text-transform:uppercase}
+  .kpi .value{font-size:1.1rem;font-weight:900;margin-top:2px}
+  .sep{height:1px;background:var(--border);margin:12px 0}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .tabs button{padding:.48rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text)}
+  .tabs .active{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#071018;border:none}
+  .flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .table-wrap{border:1px solid var(--border);border-radius:10px;background:var(--surface-2);overflow:hidden}
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  th,td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap}
+  tbody tr:nth-child(even){background:var(--stripe)}
+  tr.win{background:rgba(16,185,129,.09)} tr.jp{background:rgba(99,102,241,.12)}
+  .log-viewport{height:380px;overflow:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;position:relative}
+  .log-content{position:relative}
+  .row-placeholder{height:var(--row-h)}
+  .expand{cursor:pointer;user-select:none}
+  .details{background:rgba(255,255,255,.03)}
+  .progress{height:8px;background:var(--chip);border:1px solid var(--border);border-radius:99px;overflow:hidden}
+  .progress .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  canvas{display:block;width:100%;height:240px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px}
+  .footer{color:var(--muted);font-size:12px;text-align:center;margin:12px 0}
+  .toast-wrap{position:fixed;inset-inline-end:16px;inset-block-end:16px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+  .toast{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:.55rem .7rem}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:.2rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--chip);font-size:12px;color:var(--muted);font-weight:800}
+  .hide{display:none!important}
+</style>
+</head>
+<body data-theme="dark">
+<div class="container">
+  <!-- HEADER -->
+  <div class="toolbar">
+    <div class="brand">
+      <h1>🎯 <span data-i18n="app.title">شبیه‌ساز لاتاری — Pro</span></h1>
+      <span class="chip">Web Worker</span><span class="chip">Crypto RNG</span><span class="chip">Virtualized Log</span><span class="chip">CSV</span><span class="chip">i18n</span>
+    </div>
+    <div class="flex">
+      <label class="muted" for="presetTop" data-i18n="labels.preset">پریست</label>
+      <select id="presetTop"></select>
+      <button id="modeToggle" class="btn" title="Mode">🧭 <span data-i18n="toolbar.mode">حالت: ساده</span></button>
+      <button id="themeToggle" class="btn" title="Theme">🌓 <span data-i18n="toolbar.theme">تم</span></button>
+      <button id="dirLangToggle" class="btn" title="RTL/LTR + Lang">↔️ <span data-i18n="toolbar.dirlang">RTL/LTR + زبان</span></button>
+    </div>
+  </div>
+
+  <!-- SIMPLE PANEL -->
+  <section id="simplePanel" class="card">
+    <h2>✨ <span data-i18n="simple.title">حالت ساده</span> <span class="badge" id="presetInfoSimple"></span></h2>
+    <div class="grid-3">
+      <div>
+        <label for="simpleTargetMode" data-i18n="target.mode">حالت تارگت</label>
+        <select id="simpleTargetMode">
+          <option value="random" data-i18n="target.random">رندوم</option>
+          <option value="manual" data-i18n="target.manual">دستی</option>
+        </select>
+      </div>
+      <div>
+        <label for="simpleTicketsPerDay" data-i18n="daily.ticketsPerDay">بلیط در روز</label>
+        <input id="simpleTicketsPerDay" type="number" min="1" value="100">
+      </div>
+      <div>
+        <label for="simpleTotalTickets" data-i18n="daily.totalTickets">کل بلیط‌ها</label>
+        <input id="simpleTotalTickets" type="number" min="1" value="50000">
+      </div>
+    </div>
+    <div id="simpleTargetInputs" class="flex" style="margin-top:6px"></div>
+    <div class="sep"></div>
+    <div class="flex">
+      <button id="startSimple" class="btn primary">▶️ <span data-i18n="btn.start">شروع</span></button>
+      <button id="pauseSimple" class="btn" disabled>⏸️ <span data-i18n="btn.pause">توقف/ادامه</span></button>
+      <button id="resetSimple" class="btn warn" disabled>🗑️ <span data-i18n="btn.reset">ریست</span></button>
+      <div class="muted small" id="simpleStatus"></div>
+    </div>
+    <div class="kpi" style="margin-top:10px">
+      <div class="item"><div class="title">Tickets</div><div class="value" id="s_tickets">0</div></div>
+      <div class="item"><div class="title">Days</div><div class="value" id="s_days">0</div></div>
+      <div class="item"><div class="title">2/3/4+</div><div class="value" id="s_hits">0</div></div>
+      <div class="item"><div class="title">Jackpots</div><div class="value" id="s_jp">0</div></div>
+      <div class="item"><div class="title">Spent</div><div class="value" id="s_spent">0</div></div>
+      <div class="item"><div class="title">Net</div><div class="value" id="s_net">0</div></div>
+    </div>
+    <div class="grid-2" style="margin-top:10px">
+      <div class="card" style="padding:10px">
+        <h3>📈 <span data-i18n="chart.pl">سود/زیان تجمعی</span></h3>
+        <canvas id="simplePL" width="600" height="240"></canvas>
+      </div>
+      <div class="card" style="padding:10px">
+        <h3>📜 <span data-i18n="simple.miniLog">لاگ خلاصه (آخرین N)</span></h3>
+        <div class="flex">
+          <label class="muted small" for="miniLogN">N</label>
+          <select id="miniLogN"><option>50</option><option selected>200</option><option>500</option></select>
+          <button id="exportCsvSimple" class="btn">⬇️ <span data-i18n="btn.export">خروجی CSV</span></button>
+        </div>
+        <div class="table-wrap" style="margin-top:6px">
+          <table id="miniLogTbl"><thead><tr>
+            <th>#</th><th>m</th><th>b</th><th>prize</th><th>net</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ADVANCED PANEL -->
+  <section id="advancedPanel" class="card hide">
+    <h2>🛠️ <span data-i18n="adv.title">حالت حرفه‌ای</span> <span class="badge" id="presetInfoAdv"></span></h2>
+    <div class="tabs">
+      <button class="active" data-tab="settings" data-i18n="tabs.settings">تنظیمات بازی</button>
+      <button data-tab="daily" data-i18n="tabs.daily">روزانه</button>
+      <button data-tab="filters" data-i18n="tabs.filters">فیلترها</button>
+      <button data-tab="stats" data-i18n="tabs.stats">آمار/نمودار</button>
+      <button data-tab="log" data-i18n="tabs.log">لاگ</button>
+      <button data-tab="sessions" data-i18n="tabs.sessions">جلسات</button>
+      <button data-tab="help" data-i18n="tabs.help">راهنما</button>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div class="tab" id="tab-settings">
+      <div class="grid-3">
+        <div>
+          <label data-i18n="labels.ticketPrice">قیمت بلیط</label>
+          <input id="advTicketPrice" type="number" min="0" step="1"/>
+        </div>
+        <div>
+          <label data-i18n="labels.maxNumber">بازهٔ اصلی (۱ تا N)</label>
+          <input id="advN" type="number" min="1"/>
+        </div>
+        <div>
+          <label data-i18n="labels.k">K (تعداد اعداد)</label>
+          <input id="advK" type="number" min="1"/>
+        </div>
+        <div>
+          <label data-i18n="labels.bonusCount">تعداد بونس</label>
+          <input id="advBCount" type="number" min="0"/>
+        </div>
+        <div>
+          <label data-i18n="labels.bonusPool">استخر بونس (۱ تا M)</label>
+          <input id="advBPool" type="number" min="0"/>
+        </div>
+        <div>
+          <label data-i18n="adv.jackpotBase">پایه جک‌پات (اختیاری)</label>
+          <input id="advJackpotBase" type="number" min="0" value="50000000"/>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <h3>💰 <span data-i18n="prizes.title">جوایز</span></h3>
+      <div id="prizeTableWrap" class="table-wrap small"></div>
+      <div class="flex" style="margin-top:8px">
+        <button id="resetPrizeToPreset" class="btn">↩️ <span data-i18n="prizes.reset">بازنشانی به پریست</span></button>
+        <label class="flex" style="gap:6px"><input type="checkbox" id="usePowerPlay"> <span data-i18n="adv.usePP">Power Play</span></label>
+      </div>
+
+      <div class="sep"></div>
+      <h3>🎯 <span data-i18n="target.title">تارگت</span></h3>
+      <div class="grid-3">
+        <div>
+          <label data-i18n="target.mode">حالت تارگت</label>
+          <select id="advTargetMode">
+            <option value="random" data-i18n="target.random">رندوم</option>
+            <option value="manual" data-i18n="target.manual">دستی</option>
+          </select>
+        </div>
+        <div class="flex">
+          <button id="genTarget" class="btn">🎲 <span data-i18n="target.generate">تولید تارگت تصادفی</span></button>
+        </div>
+        <div class="flex">
+          <label class="flex" style="gap:6px"><input type="checkbox" id="stopOnJackpot"> <span data-i18n="perf.stop">توقف در جک‌پات</span></label>
+        </div>
+      </div>
+      <div id="advTargetMain" class="flex" style="margin-top:6px"></div>
+      <div id="advTargetBonus" class="flex" style="margin-top:6px"></div>
+
+      <div class="sep"></div>
+      <h3>⚡ <span data-i18n="perf.title">کارایی</span></h3>
+      <div class="grid-3">
+        <div><label data-i18n="perf.chunk">Batch/Chunk</label><input id="chunkSize" type="number" min="100" value="1000"></div>
+        <div><label data-i18n="perf.throttle">UI Throttle (ms)</label><input id="speedMs" type="number" min="0" value="16"></div>
+        <div><label data-i18n="log.mode">Log Level</label>
+          <select id="logMode"><option value="all">All</option><option value="wins">Wins</option><option value="none">None</option></select>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="flex">
+        <button id="startAdv" class="btn primary">▶️ <span data-i18n="btn.start">شروع</span></button>
+        <button id="pauseAdv" class="btn" disabled>⏸️ <span data-i18n="btn.pause">توقف/ادامه</span></button>
+        <button id="resetAdv" class="btn warn" disabled>🗑️ <span data-i18n="btn.reset">ریست</span></button>
+        <div class="muted small" id="advStatus"></div>
+      </div>
+    </div>
+
+    <!-- TAB: DAILY -->
+    <div class="tab hide" id="tab-daily">
+      <div class="grid-3">
+        <div><label data-i18n="daily.ticketsPerDay">بلیط در روز</label><input id="advTicketsPerDay" type="number" min="1" value="500"></div>
+        <div><label data-i18n="daily.totalTickets">کل بلیط‌ها</label><input id="advTotalTickets" type="number" min="1" value="200000"></div>
+        <div class="flex" style="margin-top:24px"><label class="flex" style="gap:6px"><input type="checkbox" id="changeTargetDaily" checked> <span data-i18n="daily.changeDaily">تارگت روزانه تغییر کند</span></label></div>
+      </div>
+      <div class="sep"></div>
+      <div class="grid-3">
+        <div class="item"><div class="title">Day</div><div class="value" id="d_day">1</div></div>
+        <div class="item"><div class="title">Today Tickets</div><div class="value" id="d_today">0</div></div>
+        <div class="item"><div class="title">Today Wins</div><div class="value" id="d_wins">0</div></div>
+      </div>
+      <div class="sep"></div>
+      <div class="progress"><div class="bar" id="progressBar"></div></div>
+      <div class="small muted" id="progressText"></div>
+    </div>
+
+    <!-- TAB: FILTERS -->
+    <div class="tab hide" id="tab-filters">
+      <h3>🎯 <span data-i18n="range.title">فیلتر بازه‌ای حرفه‌ای</span></h3>
+      <div class="grid-3">
+        <div>
+          <label data-i18n="range.mode">حالت</label>
+          <select id="rangeMode">
+            <option value="off" selected data-i18n="range.off">خاموش</option>
+            <option value="all" data-i18n="range.all">All-in-range</option>
+            <option value="any" data-i18n="range.any">At-least-one</option>
+          </select>
+        </div>
+        <div>
+          <label data-i18n="filters.maxCons">حداکثر دنبالهٔ متوالی</label>
+          <input id="maxConsecutive" type="number" min="1" value="5"/>
+        </div>
+        <div>
+          <label data-i18n="filters.evenOdd">Even range (min-max)</label>
+          <div class="flex"><input id="evenMin" type="number" min="0" style="width:80px"><input id="evenMax" type="number" min="0" style="width:80px"></div>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div>
+          <label data-i18n="filters.sumRange">Sum range</label>
+          <div class="flex"><input id="sumMin" type="number" min="0" style="width:100px"><input id="sumMax" type="number" min="0" style="width:100px"></div>
+        </div>
+        <div>
+          <label data-i18n="filters.include">Include (must contain all)</label>
+          <input id="includeList" placeholder="e.g. 7,13"/>
+        </div>
+        <div>
+          <label data-i18n="filters.exclude">Exclude</label>
+          <input id="excludeList" placeholder="e.g. 1,2,3"/>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div>
+        <label data-i18n="filters.multirange">Multi-range</label>
+        <div id="rangesBox" class="flex"></div>
+        <div class="flex" style="margin-top:6px">
+          <button id="addRange" class="btn">➕ <span data-i18n="filters.addRange">افزودن بازه</span></button>
+          <button id="clearRanges" class="btn">🧹 <span data-i18n="filters.clearRanges">پاک‌سازی</span></button>
+        </div>
+        <div class="small muted" style="margin-top:6px" data-i18n="filters.note">اگر حالت All-in-range باشد، همه اعداد باید در یکی از این بازه‌ها قرار بگیرند؛ اگر At-least-one باشد، حداقل یک عدد داخل بازه‌ها کافی است.</div>
+      </div>
+    </div>
+
+    <!-- TAB: STATS -->
+    <div class="tab hide" id="tab-stats">
+      <div class="kpi" id="kpiRow">
+        <div class="item"><div class="title">Tickets</div><div class="value" id="k_tickets">0</div></div>
+        <div class="item"><div class="title">Days</div><div class="value" id="k_days">0</div></div>
+        <div class="item"><div class="title">Jackpots</div><div class="value" id="k_jackpots">0</div></div>
+        <div class="item"><div class="title">Spent</div><div class="value" id="k_spent">0</div></div>
+        <div class="item"><div class="title">Paid</div><div class="value" id="k_paid">0</div></div>
+        <div class="item"><div class="title">Net P/L</div><div class="value" id="k_net">0</div></div>
+      </div>
+      <div class="sep"></div>
+      <div class="grid-2">
+        <div class="card" style="padding:10px">
+          <h3>📈 <span data-i18n="chart.pl">سود/زیان تجمعی</span></h3>
+          <canvas id="advPL" width="600" height="240"></canvas>
+        </div>
+        <div class="card" style="padding:10px">
+          <h3>📉 ROI</h3>
+          <canvas id="advROI" width="600" height="240"></canvas>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:10px">
+        <div class="card" style="padding:10px">
+          <h3>📆 Daily P&L</h3>
+          <canvas id="advDaily" width="600" height="240"></canvas>
+        </div>
+        <div class="card" style="padding:10px">
+          <h3>🎯 Hit Distribution</h3>
+          <canvas id="advDist" width="600" height="240"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: LOG -->
+    <div class="tab hide" id="tab-log">
+      <div class="flex" style="justify-content:space-between">
+        <div class="flex">
+          <label class="flex small" style="gap:6px"><input type="checkbox" id="filterWins"> <span data-i18n="log.onlyWins">فقط بردها</span></label>
+          <label class="flex small" style="gap:4px"><span>min prize</span><input id="prizeMin" type="number" style="width:100px"></label>
+          <label class="flex small" style="gap:4px"><span>max prize</span><input id="prizeMax" type="number" style="width:100px"></label>
+          <label class="flex small" style="gap:4px"><span>match≥</span><input id="matchAtLeast" type="number" style="width:80px" min="0"></label>
+        </div>
+        <div class="flex">
+          <input id="searchLog" placeholder="جستجو…" />
+          <button id="exportCsvAdv" class="btn">⬇️ <span data-i18n="btn.export">خروجی CSV</span></button>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="table-wrap">
+        <table id="logHeader">
+          <thead><tr>
+            <th data-col="ticketIndex" class="sortable">#</th>
+            <th data-col="timestamp" class="sortable">timestamp</th>
+            <th data-col="day" class="sortable">day</th>
+            <th data-col="matchedMain" class="sortable">m</th>
+            <th data-col="matchedBonus" class="sortable">b</th>
+            <th data-col="prizeAmount" class="sortable">prize</th>
+            <th data-col="netAmount" class="sortable">net</th>
+            <th data-col="presetName" class="sortable">preset</th>
+            <th>⇵</th>
+          </tr></thead>
+        </table>
+      </div>
+      <div class="log-viewport" id="logViewport">
+        <div class="log-content" id="logContent"></div>
+      </div>
+      <div class="small muted" style="margin-top:6px">* Virtualization فعال است (ارتفاع ردیف ثابت). در صورت Expand، برای سازگاری، Virtualization موقتاً غیرفعال می‌شود.</div>
+    </div>
+
+    <!-- TAB: SESSIONS -->
+    <div class="tab hide" id="tab-sessions">
+      <div class="flex">
+        <button id="saveSession" class="btn">💾 <span data-i18n="btn.save">ذخیرهٔ جلسه</span></button>
+        <select id="sessionList" style="max-width:320px"></select>
+        <button id="loadSession" class="btn">📤 <span data-i18n="btn.load">بارگذاری</span></button>
+        <button id="clearStorage" class="btn">🧹 <span data-i18n="btn.clear">پاک‌سازی</span></button>
+      </div>
+      <div class="sep"></div>
+      <h3>🏁 Leaderboard (Local)</h3>
+      <div class="table-wrap">
+        <table id="leaderTbl"><thead><tr><th>Session</th><th>Preset</th><th>Tickets</th><th>Jackpots</th><th>Spent</th><th>Paid</th><th>Net</th><th>ROI</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- TAB: HELP -->
+    <div class="tab hide" id="tab-help">
+      <h3>📘 README</h3>
+      <p class="muted small">
+        - اجرا: فایل را با مرورگر باز کنید. <br>
+        - محاسبات: Web Worker + Batch؛ RNG امن (crypto) + Fisher–Yates؛ اعداد یکتا. <br>
+        - پول: integer/minor units (بدون Float). <br>
+        - CSV: خروجی استریمی بدون هنگ. <br>
+        - Simple/Advanced: در ساده فقط کنترل‌های ضروری؛ در حرفه‌ای همه چیز. <br>
+        - فیلترها: Multi-range، Include/Exclude، even/odd، sum، max consecutive. <br>
+        - پریست‌ها: Powerball, Mega Millions (2025), EuroMillions, EuroJackpot, UK Lotto, TX Cash Five, PL Mini Lotto, CA 6/49. <br>
+      </p>
+    </div>
+  </section>
+
+  <p class="footer">© Lottery Simulator • Worker • Virtualized Log • Canvas Charts • FA/EN + RTL/LTR</p>
+</div>
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+(()=>{
+
+/* =========================
+   i18n (FA/EN) + helpers
+   ========================= */
+const I18N = {
+  fa: {
+    'app.title':'شبیه‌ساز لاتاری — Pro',
+    'toolbar.theme':'تم','toolbar.dirlang':'RTL/LTR + زبان','toolbar.mode':'حالت: ساده',
+    'simple.title':'حالت ساده','simple.miniLog':'لاگ خلاصه (آخرین N)',
+    'adv.title':'حالت حرفه‌ای',
+    'tabs.settings':'تنظیمات بازی','tabs.daily':'روزانه','tabs.filters':'فیلترها','tabs.stats':'آمار/نمودار','tabs.log':'لاگ','tabs.sessions':'جلسات','tabs.help':'راهنما',
+    'labels.preset':'پریست','labels.ticketPrice':'قیمت بلیط','labels.maxNumber':'بازهٔ اصلی (۱ تا N)','labels.k':'K (تعداد اعداد)','labels.bonusCount':'تعداد بونس','labels.bonusPool':'استخر بونس (۱ تا M)',
+    'target.title':'تارگت','target.mode':'حالت تارگت','target.random':'رندوم','target.manual':'دستی','target.generate':'تولید تارگت تصادفی',
+    'daily.ticketsPerDay':'بلیط در روز','daily.totalTickets':'کل بلیط‌ها','daily.changeDaily':'تارگت روزانه تغییر کند',
+    'range.title':'فیلتر بازه‌ای حرفه‌ای','range.mode':'حالت','range.off':'خاموش','range.all':'همه داخل بازه','range.any':'حداقل یک داخل بازه',
+    'prizes.title':'جوایز','prizes.reset':'بازنشانی به پریست',
+    'perf.title':'کارایی','perf.chunk':'Batch/Chunk','perf.throttle':'وقفهٔ UI (ms)','perf.stop':'توقف در جک‌پات',
+    'log.mode':'سطح لاگ','log.all':'همه','log.wins':'بردها','log.none':'هیچ','log.onlyWins':'فقط بردها',
+    'btn.start':'شروع','btn.pause':'توقف/ادامه','btn.reset':'ریست','btn.export':'خروجی CSV','btn.save':'ذخیرهٔ جلسه','btn.load':'بارگذاری','btn.clear':'پاک‌سازی',
+    'chart.pl':'سود/زیان تجمعی',
+    'filters.maxCons':'حداکثر دنبالهٔ متوالی','filters.evenOdd':'زوج (کم-زیاد)','filters.sumRange':'مجموع (کم-زیاد)','filters.include':'شامل','filters.exclude':'حذف','filters.multirange':'چند بازه','filters.addRange':'افزودن بازه','filters.clearRanges':'پاک‌سازی','filters.note':'توضیح حالت‌ها'
+  },
+  en: {
+    'app.title':'Lottery Simulator — Pro',
+    'toolbar.theme':'Theme','toolbar.dirlang':'RTL/LTR + Lang','toolbar.mode':'Mode: Simple',
+    'simple.title':'Simple Mode','simple.miniLog':'Mini Log (last N)',
+    'adv.title':'Advanced Mode',
+    'tabs.settings':'Game Settings','tabs.daily':'Daily','tabs.filters':'Filters','tabs.stats':'Stats/Charts','tabs.log':'Log','tabs.sessions':'Sessions','tabs.help':'Help',
+    'labels.preset':'Preset','labels.ticketPrice':'Ticket price','labels.maxNumber':'Main pool (1..N)','labels.k':'K (per ticket)','labels.bonusCount':'Bonus count','labels.bonusPool':'Bonus pool (1..M)',
+    'target.title':'Target (Draw)','target.mode':'Target mode','target.random':'Random','target.manual':'Manual','target.generate':'Generate random target',
+    'daily.ticketsPerDay':'Tickets per day','daily.totalTickets':'Total tickets','daily.changeDaily':'Change target daily',
+    'range.title':'Pro Range Filter','range.mode':'Mode','range.off':'Off','range.all':'All-in-range','range.any':'At-least-one',
+    'prizes.title':'Prizes','prizes.reset':'Reset to preset',
+    'perf.title':'Performance','perf.chunk':'Batch/Chunk','perf.throttle':'UI throttle (ms)','perf.stop':'Stop on jackpot',
+    'log.mode':'Log level','log.all':'All','log.wins':'Wins','log.none':'None','log.onlyWins':'Wins only',
+    'btn.start':'Start','btn.pause':'Pause/Resume','btn.reset':'Reset','btn.export':'Export CSV','btn.save':'Save session','btn.load':'Load','btn.clear':'Clear',
+    'chart.pl':'Cumulative P/L',
+    'filters.maxCons':'Max consecutive length','filters.evenOdd':'Even (min-max)','filters.sumRange':'Sum (min-max)','filters.include':'Include','filters.exclude':'Exclude','filters.multirange':'Multi-range','filters.addRange':'Add range','filters.clearRanges':'Clear','filters.note':'Modes note'
+  }
+};
+const $ = sel => document.querySelector(sel);
+const create = (tag,attrs={},html="")=>{const el=document.createElement(tag);for(const[k,v] of Object.entries(attrs))el.setAttribute(k,v);if(html)el.innerHTML=html;return el;};
+function toast(msg){const div=create('div',{class:'toast'},msg); $('#toastWrap').appendChild(div); setTimeout(()=>div.style.opacity='.95',20); setTimeout(()=>{div.style.opacity='0';div.style.transform='translateY(6px)';},2400); setTimeout(()=>div.remove(),2800);}
+
+/* =========================
+   Presets (realistic / minor units)
+   ========================= */
+const PRESETS = {
+  "Mega Millions (US, 2025)": {
+    name:"Mega Millions (US, 2025)", country:"US", currencyCode:"USD", currencySymbol:"$", minorUnit:100,
+    ticketPriceMinor:500, n:70, k:5, bonusCount:1, bonusPool:24, bonusFromMainPool:false,
+    prizeEngine:"fixed",
+    jackpotBaseMinor:50000000,
+    multiplier:{enabled:true, values:[2,3,4,5,10]}, // equal weights by default
+    basePrizeMap:{ "5+1":"JACKPOT","5":100000000,"4+1":1000000,"4":50000,"3+1":20000,"3":1000,"2+1":1000,"1+1":700,"0+1":500 }
+  },
+  "Powerball (US)": {
+    name:"Powerball (US)", country:"US", currencyCode:"USD", currencySymbol:"$", minorUnit:100,
+    ticketPriceMinor:200, n:69, k:5, bonusCount:1, bonusPool:26, bonusFromMainPool:false,
+    prizeEngine:"fixed",
+    jackpotBaseMinor:50000000,
+    prizeMap:{ "5+1":"JACKPOT","5":100000000,"4+1":5000000,"4":10000,"3+1":10000,"3":700,"2+1":700,"1+1":400,"0+1":400 },
+    powerPlay:{enabled:true, addOnPriceMinor:100, values:[2,3,4,5,10], tenXCapJackpotAtMostMinor:15000000000}
+  },
+  "EuroMillions (UK)": {
+    name:"EuroMillions (UK)", country:"UK", currencyCode:"GBP", currencySymbol:"£", minorUnit:100,
+    ticketPriceMinor:250, n:50, k:5, bonusCount:2, bonusPool:12, bonusFromMainPool:false,
+    prizeEngine:"pariMutuel", note:"Includes UK Millionaire Maker"
+  },
+  "EuroJackpot (EU)": {
+    name:"EuroJackpot (EU)", country:"EU", currencyCode:"EUR", currencySymbol:"€", minorUnit:100,
+    ticketPriceMinor:200, n:50, k:5, bonusCount:2, bonusPool:12, bonusFromMainPool:false,
+    prizeEngine:"pariMutuel",
+    payoutPercentages:{ "5+2":36.0,"5+1":8.6,"5+0":4.85,"4+2":0.8,"4+1":1.0,"3+2":1.1,"4+0":0.8,"2+2":2.55,"3+1":2.85,"3+0":5.4,"1+2":6.74,"2+1":20.3 },
+    boosterFundPercent:9.0
+  },
+  "UK Lotto": {
+    name:"UK Lotto", country:"UK", currencyCode:"GBP", currencySymbol:"£", minorUnit:100,
+    ticketPriceMinor:200, n:59, k:6, bonusCount:1, bonusPool:59, bonusFromMainPool:true,
+    prizeEngine:"fixed+jackpot",
+    prizeMap:{ "6":"JACKPOT","5+B":100000000,"5":175000,"4":14000,"3":3000,"2":"FREE_PLAY" },
+    freePlayCreditMinor:200, jackpotBaseMinor:5000000
+  },
+  "Texas Cash Five": {
+    name:"Cash Five (TX)", country:"US-TX", currencyCode:"USD", currencySymbol:"$", minorUnit:100,
+    ticketPriceMinor:100, n:35, k:5, bonusCount:0, bonusPool:0, bonusFromMainPool:false,
+    prizeEngine:"fixed",
+    prizeMap:{ "5":2500000,"4":35000,"3":1500,"2":"FREE_PLAY" }, freePlayCreditMinor:100
+  },
+  "Mini Lotto (PL)": {
+    name:"Mini Lotto (PL)", country:"PL", currencyCode:"PLN", currencySymbol:"zł", minorUnit:100,
+    ticketPriceMinor:200, n:42, k:5, bonusCount:0, bonusPool:0, bonusFromMainPool:false,
+    prizeEngine:"pariMutuel", note:"Daily; roll-down if no 5-match"
+  },
+  "Lotto 6/49 (CA, Classic)": {
+    name:"Lotto 6/49 (Classic)", country:"CA", currencyCode:"CAD", currencySymbol:"$", minorUnit:100,
+    ticketPriceMinor:300, n:49, k:6, bonusCount:1, bonusPool:49, bonusFromMainPool:true,
+    prizeEngine:"pariMutuel+fixedJackpot", classicJackpotMinor:500000000
+  },
+  "Custom": { name:"Custom", country:"", currencyCode:"USD", currencySymbol:"$", minorUnit:100,
+    ticketPriceMinor:200, n:49, k:6, bonusCount:0, bonusPool:0, bonusFromMainPool:false,
+    prizeEngine:"fixed", prizeMap:{}
+  }
+};
+
+/* =========================
+   State
+   ========================= */
+let state = {
+  lang:'fa', locale:'fa-IR', mode:'simple',
+  presetName:Object.keys(PRESETS)[0],
+  n:70,k:5,bonusCount:1,bonusPool:24,bonusFromMainPool:false,
+  ticketPrice:500, currencySymbol:"$", minorUnit:100,
+  prizeEngine:"fixed", prizeMap:{}, basePrizeMap:{}, multiplier:{enabled:false,values:[]}, powerPlay:{enabled:false}, jackpotBaseMinor:50000000, freePlayCreditMinor:0,
+  targetModeSimple:'random', targetSimpleMain:[], targetSimpleBonus:[],
+  targetModeAdv:'random', targetMain:[], targetBonus:[],
+  ticketsPerDaySimple:100, totalTicketsSimple:50000,
+  ticketsPerDay:500, totalTickets:200000, changeTargetDaily:true,
+  chunkSize:1000, speedMs:16, stopOnJackpot:false, logMode:'all',
+  usePowerPlay:false,
+  // filters
+  rangeMode:'off', multiRanges:[], includeList:[], excludeList:[], maxConsecutive:5, evenMin:null, evenMax:null, sumMin:null, sumMax:null,
+  // runtime
+  sessionId:null, isRunning:false, isPaused:false,
+  stats:{tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}},
+  rows:[], // in-memory log (capped by display/virtualization)
+  sortSpec:[{col:'ticketIndex',dir:'desc'}],
+  winsOnly:false, searchTerm:"", prizeMin:null, prizeMax:null, matchAtLeast:null,
+  expanded:new Set(), virtualization:true,
+  dailyPL:[], // [{day, spent, paid}]
+  // charts buffers (downsample)
+  plPoints:[], roiPoints:[]
+};
+
+const els = {
+  presetTop:$('#presetTop'),
+  modeToggle:$('#modeToggle'), themeToggle:$('#themeToggle'), dirLangToggle:$('#dirLangToggle'),
+
+  // simple
+  simplePanel:$('#simplePanel'), startSimple:$('#startSimple'), pauseSimple:$('#pauseSimple'), resetSimple:$('#resetSimple'),
+  simpleTargetMode:$('#simpleTargetMode'), simpleTicketsPerDay:$('#simpleTicketsPerDay'), simpleTotalTickets:$('#simpleTotalTickets'),
+  simpleTargetInputs:$('#simpleTargetInputs'), presetInfoSimple:$('#presetInfoSimple'),
+  s_tickets:$('#s_tickets'), s_days:$('#s_days'), s_hits:$('#s_hits'), s_jp:$('#s_jp'), s_spent:$('#s_spent'), s_net:$('#s_net'),
+  simplePL:$('#simplePL'), miniLogTbl:$('#miniLogTbl'), miniLogN:$('#miniLogN'), exportCsvSimple:$('#exportCsvSimple'), simpleStatus:$('#simpleStatus'),
+
+  // advanced
+  advancedPanel:$('#advancedPanel'), presetInfoAdv:$('#presetInfoAdv'),
+  tabs:document.querySelectorAll('.tabs button'), tabSettings:$('#tab-settings'), tabDaily:$('#tab-daily'),
+  tabFilters:$('#tab-filters'), tabStats:$('#tab-stats'), tabLog:$('#tab-log'), tabSessions:$('#tab-sessions'), tabHelp:$('#tab-help'),
+
+  advTicketPrice:$('#advTicketPrice'), advN:$('#advN'), advK:$('#advK'), advBCount:$('#advBCount'), advBPool:$('#advBPool'), advJackpotBase:$('#advJackpotBase'),
+  prizeTableWrap:$('#prizeTableWrap'), resetPrizeToPreset:$('#resetPrizeToPreset'), usePowerPlay:$('#usePowerPlay'),
+  advTargetMode:$('#advTargetMode'), genTarget:$('#genTarget'), advTargetMain:$('#advTargetMain'), advTargetBonus:$('#advTargetBonus'),
+  startAdv:$('#startAdv'), pauseAdv:$('#pauseAdv'), resetAdv:$('#resetAdv'), advStatus:$('#advStatus'),
+
+  advTicketsPerDay:$('#advTicketsPerDay'), advTotalTickets:$('#advTotalTickets'), changeTargetDaily:$('#changeTargetDaily'),
+  d_day:$('#d_day'), d_today:$('#d_today'), d_wins:$('#d_wins'), progressBar:$('#progressBar'), progressText:$('#progressText'),
+
+  rangeMode:$('#rangeMode'), maxConsecutive:$('#maxConsecutive'), evenMin:$('#evenMin'), evenMax:$('#evenMax'),
+  sumMin:$('#sumMin'), sumMax:$('#sumMax'), includeList:$('#includeList'), excludeList:$('#excludeList'),
+  rangesBox:$('#rangesBox'), addRange:$('#addRange'), clearRanges:$('#clearRanges'),
+
+  k_tickets:$('#k_tickets'), k_days:$('#k_days'), k_jackpots:$('#k_jackpots'), k_spent:$('#k_spent'), k_paid:$('#k_paid'), k_net:$('#k_net'),
+  advPL:$('#advPL'), advROI:$('#advROI'), advDaily:$('#advDaily'), advDist:$('#advDist'),
+
+  logHeader:$('#logHeader'), logViewport:$('#logViewport'), logContent:$('#logContent'),
+  filterWins:$('#filterWins'), prizeMin:$('#prizeMin'), prizeMax:$('#prizeMax'), matchAtLeast:$('#matchAtLeast'), searchLog:$('#searchLog'),
+  exportCsvAdv:$('#exportCsvAdv'),
+
+  saveSession:$('#saveSession'), sessionList:$('#sessionList'), loadSession:$('#loadSession'), clearStorage:$('#clearStorage'),
+  leaderTbl:$('#leaderTbl'),
+
+  toastWrap:$('#toastWrap')
+};
+
+const fmt = x => new Intl.NumberFormat(state.locale).format(x|0);
+const money = cents => state.currencySymbol + new Intl.NumberFormat(state.locale).format((cents|0)/state.minorUnit);
+
+/* =========================
+   Language / Dir / Theme / Mode
+   ========================= */
+function applyI18n(){
+  const dict = I18N[state.lang] || I18N.fa;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.getAttribute('data-i18n'); if(dict[k]) el.textContent=dict[k];
+  });
+  document.documentElement.lang = (state.lang==='fa'?'fa':'en');
+  document.documentElement.dir  = (state.lang==='fa'?'rtl':'ltr');
+  els.searchLog.setAttribute('placeholder', state.lang==='fa'?'جستجو…':'Search…');
+  els.modeToggle.querySelector('span').textContent = dict['toolbar.mode'];
+}
+function setMode(mode){
+  state.mode = mode;
+  const dict = I18N[state.lang] || I18N.fa;
+  if(mode==='simple'){
+    els.simplePanel.classList.remove('hide');
+    els.advancedPanel.classList.add('hide');
+    els.modeToggle.querySelector('span').textContent = (state.lang==='fa'?'حالت: ساده':'Mode: Simple');
+  }else{
+    els.simplePanel.classList.add('hide');
+    els.advancedPanel.classList.remove('hide');
+    els.modeToggle.querySelector('span').textContent = (state.lang==='fa'?'حالت: حرفه‌ای':'Mode: Advanced');
+  }
+}
+els.modeToggle.addEventListener('click', ()=> setMode(state.mode==='simple'?'advanced':'simple'));
+els.themeToggle.addEventListener('click', ()=>{
+  const cur = document.body.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.body.setAttribute('data-theme',cur); saveSettings();
+});
+els.dirLangToggle.addEventListener('click', ()=>{
+  if(state.lang==='fa'){ state.lang='en'; state.locale='en-US'; }
+  else { state.lang='fa'; state.locale='fa-IR'; }
+  applyI18n(); renderPresetBadges(); renderLog(true); drawAllCharts();
+  saveSettings();
+});
+
+/* =========================
+   Presets
+   ========================= */
+function loadPresetOptions(){
+  els.presetTop.innerHTML = Object.keys(PRESETS).map(k=>`<option value="${k}">${k}</option>`).join('');
+}
+function applyPreset(name){
+  const p = JSON.parse(JSON.stringify(PRESETS[name]));
+  state.presetName = p.name;
+  state.n=p.n; state.k=p.k; state.bonusCount=p.bonusCount; state.bonusPool=p.bonusPool; state.bonusFromMainPool=!!p.bonusFromMainPool;
+  state.ticketPrice=p.ticketPriceMinor|0; state.currencySymbol=p.currencySymbol; state.minorUnit=p.minorUnit|0||100;
+  state.prizeEngine=p.prizeEngine; state.prizeMap=p.prizeMap||{}; state.basePrizeMap=p.basePrizeMap||{};
+  state.multiplier=p.multiplier||{enabled:false,values:[]}; state.powerPlay=p.powerPlay||{enabled:false};
+  state.jackpotBaseMinor=p.jackpotBaseMinor||p.classicJackpotMinor||50000000;
+  state.freePlayCreditMinor=p.freePlayCreditMinor||0;
+
+  els.presetTop.value = name;
+  // reflect advanced
+  els.advTicketPrice.value=state.ticketPrice; els.advN.value=state.n; els.advK.value=state.k; els.advBCount.value=state.bonusCount; els.advBPool.value=state.bonusPool; els.advJackpotBase.value=state.jackpotBaseMinor;
+  els.usePowerPlay.checked=false; state.usePowerPlay=false;
+
+  renderPrizeTable(); renderTargetInputs('simple'); renderTargetInputs('adv');
+  renderPresetBadges(); saveSettings();
+}
+function renderPresetBadges(){
+  const info = `${state.presetName} — ${state.currencySymbol}${(state.ticketPrice/state.minorUnit).toFixed(2)} • ${state.k}/${state.n}` + (state.bonusCount>0?` + ${state.bonusCount}★/${state.bonusPool}`:'');
+  els.presetInfoSimple.textContent = info;
+  els.presetInfoAdv.textContent = info;
+}
+
+/* =========================
+   Prize Table
+   ========================= */
+function buildPrizeKeys(k,bCount){
+  const keys=[]; for(let m=2;m<=k;m++){ keys.push(String(m)); for(let b=1;b<=bCount;b++) keys.push(`${m}+${b}`); }
+  // jackpot keys:
+  if(bCount>0) keys.push(`${k}+${bCount}`); else keys.push(`${k}`);
+  // remove duplicates and sort
+  const set=Array.from(new Set(keys));
+  set.sort((a,b)=>{const [am,ab=0]=a.split('+').map(x=>+x||0); const [bm,bb=0]=b.split('+').map(x=>+x||0); if(am!==bm) return bm-am; return (bb-ab);});
+  return set;
+}
+function renderPrizeTable(){
+  const keys = buildPrizeKeys(state.k, state.bonusCount);
+  const pm = Object.assign({}, (state.multiplier.enabled? state.basePrizeMap: state.prizeMap));
+  const rows = keys.map(key=>{
+    const val = pm[key]!=null ? pm[key] : 0;
+    const isJack = (key===`${state.k}` && state.bonusCount===0) || (key===`${state.k}+${state.bonusCount}` && state.bonusCount>0);
+    const disp = (val==='JACKPOT')? 'JACKPOT' : (val==='FREE_PLAY'?'FREE_PLAY':(val|0));
+    return `<tr><td><b>${key}</b> ${isJack?'<span class="chip">Jackpot</span>':''}</td><td><input class="prize-input" data-key="${key}" value="${disp}"></td></tr>`;
+  }).join('');
+  els.prizeTableWrap.innerHTML = `<table><thead><tr><th>Match</th><th>${state.lang==='fa'?'جایزه (minor units یا علامت خاص)':'Prize (minor units or special)'}</th></tr></thead><tbody>${rows}</tbody></table>`;
+  els.prizeTableWrap.querySelectorAll('.prize-input').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      const k = e.target.dataset.key; const v = e.target.value.trim();
+      const isMult = state.multiplier.enabled;
+      const targetMap = isMult ? state.basePrizeMap : state.prizeMap;
+      if(v.toUpperCase()==='JACKPOT' || v.toUpperCase()==='FREE_PLAY'){ targetMap[k]=v.toUpperCase(); }
+      else targetMap[k]= parseInt(v||'0',10)|0;
+      saveSettings();
+    });
+  });
+}
+els.resetPrizeToPreset.addEventListener('click', ()=> applyPreset(state.presetName));
+els.usePowerPlay.addEventListener('change', ()=>{state.usePowerPlay=els.usePowerPlay.checked; saveSettings();});
+
+/* =========================
+   Target inputs
+   ========================= */
+function renderTargetInputs(which){
+  const countMain = state.k, countBonus = state.bonusCount;
+  const build = (parent,count,label,arrRef)=>{
+    parent.innerHTML = `<div class="muted">${label}</div>`;
+    for(let i=0;i<count;i++){
+      const inp = create('input',{type:'number',min:'1',style:'width:64px;text-align:center'});
+      inp.addEventListener('change',()=>{ arrRef[i]=parseInt(inp.value||'0',10)|0; saveSettings(); });
+      parent.appendChild(inp);
+    }
+  };
+  if(which==='simple' || which==='both'){ build(els.simpleTargetInputs, countMain, state.lang==='fa'?'اعداد اصلی':'Main numbers', state.targetSimpleMain); if(countBonus>0){ const s = create('div',{},state.lang==='fa'?'بونس:':'Bonus:'); els.simpleTargetInputs.appendChild(s); for(let i=0;i<countBonus;i++){ const inp=create('input',{type:'number',min:'1',style:'width:64px;text-align:center'}); inp.addEventListener('change',()=>{ state.targetSimpleBonus[i]=parseInt(inp.value||'0',10)|0; saveSettings(); }); els.simpleTargetInputs.appendChild(inp);} } }
+  if(which==='adv' || which==='both'){ els.advTargetMain.innerHTML=''; els.advTargetBonus.innerHTML=''; build(els.advTargetMain, countMain, state.lang==='fa'?'اعداد اصلی':'Main numbers', state.targetMain); if(countBonus>0) build(els.advTargetBonus, countBonus, 'Bonus', state.targetBonus); }
+}
+$('#genTarget').addEventListener('click', ()=>{ randomizeTarget('adv'); });
+els.simpleTargetMode.addEventListener('change', ()=>{ state.targetModeSimple=els.simpleTargetMode.value; saveSettings(); });
+function randomizeTarget(which){
+  const sample=(n,k)=>{ const arr=Array.from({length:n},(_,i)=>i+1); for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr.slice(0,k).sort((a,b)=>a-b); };
+  const main = sample(state.n,state.k); const bonus = state.bonusCount>0 ? sample(state.bonusPool,state.bonusCount):[];
+  if(which==='adv'){ state.targetMain=main; state.targetBonus=bonus; renderTargetInputs('adv'); }
+  else { state.targetSimpleMain=main; state.targetSimpleBonus=bonus; renderTargetInputs('simple'); }
+  saveSettings();
+}
+
+/* =========================
+   Persist
+   ========================= */
+const LS_SETTINGS='lsim.settings.v1', LS_SESSIONS='lsim.sessions.v1';
+function saveSettings(){
+  const s = {
+    lang:state.lang, locale:state.locale, theme:document.body.getAttribute('data-theme'), mode:state.mode,
+    presetName:state.presetName, n:state.n, k:state.k, bonusCount:state.bonusCount, bonusPool:state.bonusPool, bonusFromMainPool:state.bonusFromMainPool,
+    ticketPrice:state.ticketPrice, currencySymbol:state.currencySymbol, minorUnit:state.minorUnit,
+    prizeEngine:state.prizeEngine, prizeMap:state.prizeMap, basePrizeMap:state.basePrizeMap, multiplier:state.multiplier, powerPlay:state.powerPlay, jackpotBaseMinor:state.jackpotBaseMinor, freePlayCreditMinor:state.freePlayCreditMinor,
+    targetModeSimple:state.targetModeSimple, targetSimpleMain:state.targetSimpleMain, targetSimpleBonus:state.targetSimpleBonus,
+    targetModeAdv:state.targetModeAdv, targetMain:state.targetMain, targetBonus:state.targetBonus,
+    ticketsPerDaySimple:state.ticketsPerDaySimple, totalTicketsSimple:state.totalTicketsSimple,
+    ticketsPerDay:state.ticketsPerDay, totalTickets:state.totalTickets, changeTargetDaily:state.changeTargetDaily,
+    chunkSize:state.chunkSize, speedMs:state.speedMs, stopOnJackpot:state.stopOnJackpot, logMode:state.logMode,
+    usePowerPlay:state.usePowerPlay,
+    rangeMode:state.rangeMode, multiRanges:state.multiRanges, includeList:state.includeList, excludeList:state.excludeList, maxConsecutive:state.maxConsecutive, evenMin:state.evenMin, evenMax:state.evenMax, sumMin:state.sumMin, sumMax:state.sumMax
+  };
+  localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
+}
+function loadSettings(){
+  const raw = localStorage.getItem(LS_SETTINGS); if(!raw) return;
+  try{ const s=JSON.parse(raw);
+    Object.assign(state,s);
+    document.body.setAttribute('data-theme', s.theme||'dark');
+  }catch(e){}
+}
+
+/* =========================
+   Worker
+   ========================= */
+let worker=null;
+function createWorker(){
+const code = `
+let running=false, paused=false, cfg=null;
+
+function rBelow(n){ const max=0x100000000; const limit=Math.floor(max/n)*n; const buf=new Uint32Array(1); let r; do{crypto.getRandomValues(buf); r=buf[0];}while(r>=limit); return r % n; }
+function r1n(n){ return rBelow(n)+1; }
+function sampleUnique(n,k){ const map=new Map(); const res=new Array(k); for(let i=0;i<k;i++){ const r=r1n(n-i); const x=map.get(r)||r; const y=map.get(n-i)||(n-i); map.set(r,y); res[i]=x; } res.sort((a,b)=>a-b); return res; }
+
+function countMatches(arr,set){ let c=0; for(let i=0;i<arr.length;i++) if(set.has(arr[i])) c++; return c; }
+function maxConsecutiveLen(arr){ let mx=1,cur=1; for(let i=1;i<arr.length;i++){ if(arr[i]===arr[i-1]+1) cur++; else cur=1; if(cur>mx) mx=cur; } return mx; }
+function evenCount(arr){ let c=0; for(const x of arr) if((x&1)===0) c++; return c; }
+function sumArr(arr){ let s=0; for(const x of arr) s+=x; return s; }
+
+function withinRanges(numbers, ranges, mode){
+  if(!ranges || ranges.length===0 || mode==='off') return true;
+  if(mode==='all'){
+    return numbers.every(x=> ranges.some(([a,b])=> x>=a && x<=b ));
+  }else if(mode==='any'){
+    return numbers.some(x=> ranges.some(([a,b])=> x>=a && x<=b ));
+  }
+  return true;
+}
+function includeExcludeOk(numbers, includeList, excludeList){
+  if(includeList && includeList.length>0){
+    for(const v of includeList){ if(!numbers.includes(v)) return false; }
+  }
+  if(excludeList && excludeList.length>0){
+    for(const v of excludeList){ if(numbers.includes(v)) return false; }
+  }
+  return true;
+}
+function passesAdvancedFilters(main, fcfg){
+  if(!withinRanges(main, fcfg.multiRanges||[], fcfg.rangeMode||'off')) return false;
+  if(fcfg.maxConsecutive!=null && fcfg.maxConsecutive>0){
+    if(maxConsecutiveLen(main) > fcfg.maxConsecutive) return false;
+  }
+  if(fcfg.evenMin!=null || fcfg.evenMax!=null){
+    const ec = evenCount(main);
+    if(fcfg.evenMin!=null && ec<fcfg.evenMin) return false;
+    if(fcfg.evenMax!=null && ec>fcfg.evenMax) return false;
+  }
+  if(fcfg.sumMin!=null || fcfg.sumMax!=null){
+    const s = sumArr(main);
+    if(fcfg.sumMin!=null && s<fcfg.sumMin) return false;
+    if(fcfg.sumMax!=null && s>fcfg.sumMax) return false;
+  }
+  if(!includeExcludeOk(main, fcfg.includeList||[], fcfg.excludeList||[])) return false;
+  return true;
+}
+
+function calcPrizeFixed(key, pm, basePM, jackpotBase, useMultiplier, multiplierValues, usePowerPlay, powerPlayCfg, matchMain, nonJackpotPrize){
+  // key like "3", "3+1", ...
+  // handle FREE_PLAY, JACKPOT
+  let raw = (useMultiplier && basePM) ? basePM[key] : (pm? pm[key]:null);
+  // When multiplier is enabled but no base val, fallback to pm
+  if(raw==null && useMultiplier && pm) raw = pm[key];
+
+  if(raw==='JACKPOT') return jackpotBase|0;
+  if(raw==='FREE_PLAY') return -1; // sentinel for free credit (will be mapped to ticket price)
+  let val = raw|0;
+
+  // Mega Millions multiplier (auto) or PowerPlay
+  if(useMultiplier && nonJackpotPrize){
+    // equal weights by default
+    const idx = rBelow(multiplierValues.length);
+    const mult = multiplierValues[idx]|0||1;
+    val = val * mult;
+  } else if(usePowerPlay && nonJackpotPrize){
+    // Match-5 in Powerball with Power Play = $2M
+    if(matchMain===5) val = 200000000; // 2,000,000 cents
+    else {
+      const vals = powerPlayCfg.values||[2,3,4,5,10]; const idx=rBelow(vals.length); const mult=vals[idx]|0||1; val = val*mult;
+    }
+  }
+  return val|0;
+}
+
+self.onmessage = async (e)=>{
+  const d=e.data||{}; if(d.type==='start'){ cfg=d.config; running=true; paused=false; await run(); }
+  else if(d.type==='pause'){ paused=true; } else if(d.type==='resume'){ paused=false; }
+  else if(d.type==='stop'){ running=false; }
+};
+
+const sleep=(ms)=> new Promise(r=>setTimeout(r,ms));
+
+async function run(){
+  const stats={tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}};
+  let day=1, todayTickets=0, todayWins=0;
+  let deltaDays=[]; let curDaySpent=0, curDayPaid=0;
+
+  // init target
+  let targetMain = (cfg.targetMode==='manual' && (cfg.targetMain||[]).length===cfg.k)? cfg.targetMain.slice().sort((a,b)=>a-b):null;
+  let targetBonus = (cfg.targetMode==='manual' && (cfg.targetBonus||[]).length===cfg.bonusCount)? cfg.targetBonus.slice().sort((a,b)=>a-b):[];
+  if(cfg.targetMode==='random' || !targetMain){
+    targetMain = sampleUnique(cfg.n,cfg.k);
+    targetBonus = cfg.bonusCount>0? sampleUnique(cfg.bonusPool,cfg.bonusCount):[];
+  }
+  let targetSet=new Set(targetMain), bonusSet=new Set(targetBonus);
+
+  const total=cfg.totalTickets|0, chunk=Math.max(1,cfg.chunkSize|0), spentPer=cfg.ticketPrice|0;
+  let rows = (cfg.logMode==='none')? null: [];
+  let lastYield = performance.now();
+
+  for(let done=0; done<total && running; ){
+    if(paused){ await sleep(50); lastYield=performance.now(); continue; }
+
+    const limit=Math.min(chunk,total-done);
+    rows && (rows.length=0);
+    let closedDays=[];
+
+    for(let i=0;i<limit && running;i++){
+      // daily boundary
+      if(todayTickets >= (cfg.ticketsPerDay|0)){
+        stats.days++; day++; todayTickets=0; todayWins=0;
+        // close previous day aggregate
+        deltaDays.push({day:day-1, spent:curDaySpent, paid:curDayPaid});
+        closedDays.push({day:day-1, spent:curDaySpent, paid:curDayPaid});
+        curDaySpent=0; curDayPaid=0;
+
+        if(cfg.changeTargetDaily && cfg.targetMode==='random'){
+          targetMain = sampleUnique(cfg.n,cfg.k);
+          targetBonus = cfg.bonusCount>0? sampleUnique(cfg.bonusPool,cfg.bonusCount):[];
+          targetSet=new Set(targetMain); bonusSet=new Set(targetBonus);
+        }
+      }
+
+      // build a valid ticket according to filters
+      let t=null, tries=0;
+      while(true){
+        tries++;
+        const main=sampleUnique(cfg.n,cfg.k);
+        if(passesAdvancedFilters(main, cfg.range)){
+          const bonus = cfg.bonusCount>0? sampleUnique(cfg.bonusFromMainPool? cfg.n:cfg.bonusPool, cfg.bonusCount):[];
+          // if bonus from main pool, ensure uniqueness against main
+          if(cfg.bonusFromMainPool && bonus.some(b=>main.includes(b))) continue;
+          t={main, bonus};
+          break;
+        }
+        if(tries>4000){ // fail-safe
+          const bonus = cfg.bonusCount>0? sampleUnique(cfg.bonusFromMainPool? cfg.n:cfg.bonusPool, cfg.bonusCount):[];
+          t={main:sampleUnique(cfg.n,cfg.k), bonus}; break;
+        }
+      }
+
+      const m = countMatches(t.main, targetSet);
+      const b = cfg.bonusCount>0? countMatches(t.bonus, bonusSet):0;
+
+      const key2 = (b>0)? (m+"+"+b): String(m);
+      const isJack = (cfg.bonusCount>0)? (m===cfg.k && b===cfg.bonusCount): (m===cfg.k);
+
+      let baseMap = cfg.basePrizeMap||{};
+      let prize = 0;
+      if(cfg.prizeEngine.startsWith('fixed')){
+        const raw = (cfg.multiplier.enabled? baseMap[key2]: (cfg.prizeMap[key2]!=null? cfg.prizeMap[key2]: (cfg.prizeMap[String(m)])));
+        const nonJack = !(raw==='JACKPOT');
+        let val = calcPrizeFixed(key2, cfg.prizeMap, baseMap, cfg.jackpotBaseMinor|0, cfg.multiplier.enabled, (cfg.multiplier.values||[]), cfg.usePowerPlay, cfg.powerPlay||{}, m, nonJack);
+        if(val===-1) val = cfg.freePlayCreditMinor||0; // FREE_PLAY credit
+        prize = val|0;
+      } else {
+        // pariMutuel (simplified placeholder) – treat as fixed mid prizes off map if present; else zero
+        const raw = (cfg.prizeMap && (cfg.prizeMap[key2]!=null ? cfg.prizeMap[key2] : cfg.prizeMap[String(m)]));
+        if(raw==='JACKPOT') prize = cfg.jackpotBaseMinor|0; else if(raw==='FREE_PLAY') prize=(cfg.ticketPrice|0); else prize = (raw|0);
+      }
+
+      stats.tickets++; todayTickets++;
+      stats.spent += spentPer; curDaySpent += spentPer;
+
+      stats.paid += prize; curDayPaid += prize;
+      stats.net = stats.paid - stats.spent;
+
+      const keyCount = (b>0)? (m+"+"+b): String(m);
+      stats.matchCounts[keyCount] = (stats.matchCounts[keyCount]|0) + 1;
+      if(isJack){ stats.jackpots++; todayWins++; if(cfg.stopOnJackpot){ rows && rows.push(buildRow(cfg.sessionId, stats.tickets, day, t, m, b, prize, spentPer, prize-spentPer, cfg.presetName)); self.postMessage({type:'chunk', stats, rows, day, todayTickets, todayWins, deltaDays:closedDays}); running=false; break; } }
+      if(prize>0) todayWins++;
+
+      if(rows && (cfg.logMode==='all' || (cfg.logMode==='wins' && prize>0))){
+        rows.push(buildRow(cfg.sessionId, stats.tickets, day, t, m, b, prize, spentPer, prize-spentPer, cfg.presetName));
+      }
+
+      done++;
+
+      if(performance.now()-lastYield>16 && cfg.delayMs>0){ await sleep(cfg.delayMs); lastYield=performance.now(); }
+    }
+
+    self.postMessage({type:'chunk', stats, rows, day, todayTickets, todayWins, deltaDays:closedDays});
+  }
+  self.postMessage({type:'done', stats, deltaDays});
+}
+
+function buildRow(sessionId, idx, day, t, m, b, prize, spent, net, presetName){
+  return { timestamp:new Date().toISOString(), sessionId, ticketIndex:idx, day, numbersMain:t.main, numbersBonus:t.bonus, matchedMain:m, matchedBonus:b, prizeAmount:prize|0, spentAmount:spent|0, netAmount:net|0, presetName };
+}
+`;
+const blob = new Blob([code],{type:"application/javascript"});
+const url = URL.createObjectURL(blob);
+const w = new Worker(url); w._url=url; return w;
+}
+function destroyWorker(){ if(worker){ worker.terminate(); URL.revokeObjectURL(worker._url); worker=null; }}
+
+/* =========================
+   Charts (Canvas)
+   ========================= */
+function drawLine(canvas, points, yLabelMaxMin=null){
+  const ctx=canvas.getContext('2d'); const w=canvas.width, h=canvas.height; ctx.clearRect(0,0,w,h);
+  const pad={l:48,r:10,t:12,b:22}, iw=w-pad.l-pad.r, ih=h-pad.t-pad.b;
+  if(points.length<2){ // grid
+    ctx.strokeStyle=getCss('--border'); ctx.beginPath(); for(let i=0;i<=4;i++){const y=pad.t+ih*(i/4); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+iw,y);} ctx.stroke(); return;
+  }
+  const xs=points.map(p=>p.x), ys=points.map(p=>p.y);
+  let minX=Math.min(...xs), maxX=Math.max(...xs); if(minX===maxX){minX=0;maxX=1;}
+  let minY=Math.min(...ys), maxY=Math.max(...ys); if(minY===maxY){minY-=1;maxY+=1;}
+  if(yLabelMaxMin){minY=Math.min(minY,yLabelMaxMin.min);maxY=Math.max(maxY,yLabelMaxMin.max);}
+  const sx=x=> pad.l+iw*((x-minX)/(maxX-minX)); const sy=y=> pad.t+ih*(1-((y-minY)/(maxY-minY)));
+
+  // grid
+  ctx.strokeStyle=getCss('--border'); ctx.beginPath(); for(let i=0;i<=4;i++){ const y=pad.t+ih*(i/4); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+iw,y);} ctx.stroke();
+  // axis labels
+  ctx.fillStyle=getCss('--muted'); ctx.font="12px ui-sans-serif"; ctx.textAlign="right"; ctx.textBaseline="middle";
+  ctx.fillText(fmt(maxY), pad.l-6, pad.t); ctx.fillText(fmt(minY), pad.l-6, pad.t+ih);
+
+  // line
+  ctx.beginPath(); ctx.lineWidth=2; ctx.strokeStyle=getCss('--accent-2');
+  points.forEach((p,i)=>{ const X=sx(p.x), Y=sy(p.y); if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y); }); ctx.stroke();
+}
+function drawBars(canvas, values){
+  const ctx=canvas.getContext('2d'); const w=canvas.width, h=canvas.height; ctx.clearRect(0,0,w,h);
+  const pad={l:48,r:10,t:12,b:22}, iw=w-pad.l-pad.r, ih=h-pad.t-pad.b;
+  const xs=values.map((v,i)=>i+1); const ys=values.map(v=>v);
+  const minY=Math.min(0,Math.min(...ys)), maxY=Math.max(...ys,1);
+  const barW = iw/Math.max(values.length,1);
+  const sy=y=> pad.t+ih*(1-((y-minY)/(maxY-minY)));
+  // grid
+  ctx.strokeStyle=getCss('--border'); ctx.beginPath(); for(let i=0;i<=4;i++){ const y=pad.t+ih*(i/4); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+iw,y);} ctx.stroke();
+  // axis labels
+  ctx.fillStyle=getCss('--muted'); ctx.font="12px ui-sans-serif"; ctx.textAlign="right"; ctx.textBaseline="middle";
+  ctx.fillText(fmt(maxY), pad.l-6, pad.t); ctx.fillText(fmt(minY), pad.l-6, pad.t+ih);
+
+  // bars
+  ctx.fillStyle=getCss('--accent');
+  values.forEach((v,i)=>{ const x=pad.l+i*barW+2; const y=sy(Math.max(0,v)); const y0=sy(0); const hbar=Math.abs(y0-y); ctx.fillRect(x, Math.min(y,y0), barW-4, hbar); });
+}
+function drawDonut(canvas, kv){
+  const ctx=canvas.getContext('2d'); const w=canvas.width, h=canvas.height; ctx.clearRect(0,0,w,h);
+  const keys=Object.keys(kv), vals=keys.map(k=>kv[k]|0), total=vals.reduce((a,b)=>a+b,0)||1;
+  const cx=w/2, cy=h/2, R=Math.min(w,h)*0.38, r=R*0.5;
+  let a0=-Math.PI/2;
+  keys.forEach((k,i)=>{
+    const a1 = a0 + 2*Math.PI*( (kv[k]|0)/total );
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1,false); ctx.closePath();
+    ctx.fillStyle = i%2? getCss('--accent'): getCss('--accent-2'); ctx.fill();
+    a0=a1;
+  });
+  // donut hole
+  ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.fill(); ctx.globalCompositeOperation='source-over';
+  // legend simplified
+  ctx.fillStyle=getCss('--muted'); ctx.font='12px ui-sans-serif'; ctx.textAlign='left';
+  let ly=10; keys.slice(0,8).forEach((k,i)=>{ ctx.fillText(k+': '+fmt(kv[k]|0),10,ly); ly+=16; });
+}
+const getCss = name => getComputedStyle(document.body).getPropertyValue(name);
+
+/* =========================
+   Simple mode handlers
+   ========================= */
+els.startSimple.addEventListener('click', ()=> startRun('simple'));
+els.pauseSimple.addEventListener('click', ()=> togglePause());
+els.resetSimple.addEventListener('click', ()=> stopRun(true));
+els.exportCsvSimple.addEventListener('click', ()=> exportCSV());
+
+/* =========================
+   Advanced handlers
+   ========================= */
+els.startAdv.addEventListener('click', ()=> startRun('advanced'));
+els.pauseAdv.addEventListener('click', ()=> togglePause());
+els.resetAdv.addEventListener('click', ()=> stopRun(true));
+
+// tabs
+els.tabs.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    els.tabs.forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    ['settings','daily','filters','stats','log','sessions','help'].forEach(id=>{
+      $('#tab-'+id)?.classList.add('hide');
+    });
+    $('#tab-'+btn.getAttribute('data-tab'))?.classList.remove('hide');
+    drawAllCharts();
+  });
+});
+
+// settings reflect
+['advTicketPrice','advN','advK','advBCount','advBPool','advJackpotBase'].forEach(id=>{
+  els[id].addEventListener('change', ()=>{
+    state.ticketPrice=+els.advTicketPrice.value||0; state.n=+els.advN.value||0; state.k=+els.advK.value||0;
+    state.bonusCount=+els.advBCount.value||0; state.bonusPool=+els.advBPool.value||0; state.jackpotBaseMinor=+els.advJackpotBase.value||0;
+    renderPrizeTable(); renderTargetInputs('adv'); renderPresetBadges(); saveSettings();
+  });
+});
+els.advTargetMode.addEventListener('change', ()=>{ state.targetModeAdv=els.advTargetMode.value; saveSettings(); });
+els.changeTargetDaily.addEventListener('change', ()=>{ state.changeTargetDaily=els.changeTargetDaily.checked; saveSettings(); });
+['advTicketsPerDay','advTotalTickets','chunkSize','speedMs'].forEach(id=>{
+  els[id].addEventListener('change', ()=>{
+    state.ticketsPerDay=+els.advTicketsPerDay.value||0;
+    state.totalTickets=+els.advTotalTickets.value||0;
+    state.chunkSize=+els.chunkSize.value||1000;
+    state.speedMs=+els.speedMs.value||0;
+    saveSettings();
+  });
+});
+$('#stopOnJackpot').addEventListener('change', ()=>{ state.stopOnJackpot=$('#stopOnJackpot').checked; saveSettings(); });
+$('#logMode').addEventListener('change', ()=>{ state.logMode=$('#logMode').value; saveSettings(); });
+
+// filters
+function addRangeItem(a=1,b=state.n){
+  const wrap=create('div',{class:'flex'});
+  const i1=create('input',{type:'number',min:'1',value:String(a),style:'width:100px'});
+  const i2=create('input',{type:'number',min:'1',value:String(b),style:'width:100px'});
+  const del=create('button',{class:'btn ghost',title:'Del'},'🗑️');
+  del.addEventListener('click', ()=>{ wrap.remove(); collectRanges(); });
+  [i1,i2].forEach(i=> i.addEventListener('change', collectRanges));
+  wrap.append('['); wrap.appendChild(i1); wrap.append('..'); wrap.appendChild(i2); wrap.append('] '); wrap.appendChild(del);
+  els.rangesBox.appendChild(wrap); collectRanges();
+}
+function collectRanges(){
+  state.multiRanges = Array.from(els.rangesBox.querySelectorAll('div.flex')).map(div=>{
+    const ins=div.querySelectorAll('input'); const a=+ins[0].value||1, b=+ins[1].value||1; return [Math.min(a,b), Math.max(a,b)];
+  });
+  saveSettings();
+}
+els.addRange.addEventListener('click', ()=> addRangeItem(1,state.n));
+els.clearRanges.addEventListener('click', ()=>{ els.rangesBox.innerHTML=''; state.multiRanges=[]; saveSettings(); });
+els.rangeMode.addEventListener('change', ()=>{ state.rangeMode=els.rangeMode.value; saveSettings(); });
+['maxConsecutive','evenMin','evenMax','sumMin','sumMax','includeList','excludeList'].forEach(id=>{
+  els[id].addEventListener('change', ()=>{
+    state.maxConsecutive = +els.maxConsecutive.value||null;
+    state.evenMin = els.evenMin.value!==''? (+els.evenMin.value|0): null;
+    state.evenMax = els.evenMax.value!==''? (+els.evenMax.value|0): null;
+    state.sumMin = els.sumMin.value!==''? (+els.sumMin.value|0): null;
+    state.sumMax = els.sumMax.value!==''? (+els.sumMax.value|0): null;
+    state.includeList = parseList(els.includeList.value);
+    state.excludeList = parseList(els.excludeList.value);
+    saveSettings();
+  });
+});
+function parseList(s){ return (s||'').split(',').map(x=>parseInt(x.trim(),10)).filter(v=>!isNaN(v)); }
+
+/* =========================
+   Log (Sort / Search / Filter / Expand / Virtualized)
+   ========================= */
+els.filterWins.addEventListener('change', ()=>{ state.winsOnly=els.filterWins.checked; renderLog(true); });
+[els.prizeMin, els.prizeMax, els.matchAtLeast].forEach(el=> el.addEventListener('change', ()=>{ state.prizeMin=els.prizeMin.value===''?null:+els.prizeMin.value; state.prizeMax=els.prizeMax.value===''?null:+els.prizeMax.value; state.matchAtLeast=els.matchAtLeast.value===''?null:+els.matchAtLeast.value; renderLog(true); }));
+els.searchLog.addEventListener('input', ()=>{ state.searchTerm=els.searchLog.value||''; renderLog(true); });
+
+els.logHeader.addEventListener('click', (e)=>{
+  const th=e.target.closest('th'); if(!th || !th.dataset.col) return;
+  const col=th.dataset.col; const shift=(e.shiftKey===true);
+  let spec = state.sortSpec.slice();
+  const existing = spec.find(s=>s.col===col);
+  if(existing){ existing.dir = existing.dir==='asc'?'desc':'asc'; if(!shift) spec=[existing]; }
+  else{ if(shift) spec.push({col,dir:'desc'}); else spec=[{col,dir:'desc'}]; }
+  state.sortSpec=spec; renderLog(true);
+});
+
+function filteredRows(){
+  let arr = state.rows;
+  if(state.winsOnly) arr=arr.filter(r=>r.prizeAmount>0);
+  if(state.prizeMin!=null) arr=arr.filter(r=>r.prizeAmount>=state.prizeMin);
+  if(state.prizeMax!=null) arr=arr.filter(r=>r.prizeAmount<=state.prizeMax);
+  if(state.matchAtLeast!=null) arr=arr.filter(r=>r.matchedMain>=state.matchAtLeast);
+  const q=(state.searchTerm||'').trim().toLowerCase();
+  if(q) arr=arr.filter(r=> String(r.ticketIndex).includes(q) || r.timestamp.toLowerCase().includes(q) || String(r.day).includes(q) ||
+    r.presetName.toLowerCase().includes(q) || r.numbersMain.join(',').includes(q) || (r.numbersBonus||[]).join(',').includes(q) || String(r.prizeAmount).includes(q)
+  );
+  // sorting (stable)
+  arr = arr.map((r,i)=>({...r,__i:i}));
+  const cmp=(a,b,k,dir)=>{
+    let va=a[k], vb=b[k]; if(typeof va==='string'&&k!=='timestamp'){va=va.toLowerCase(); vb=vb.toLowerCase();}
+    if(va<vb) return dir==='asc'?-1:1; if(va>vb) return dir==='asc'?1:-1; return a.__i-b.__i;
+  };
+  arr.sort((a,b)=>{
+    for(const s of state.sortSpec){ const c=cmp(a,b,s.col,s.dir); if(c!==0) return c; } return a.__i-b.__i;
+  });
+  return arr;
+}
+
+els.logViewport.addEventListener('scroll', ()=> renderLog());
+function renderLog(forceReset=false){
+  const vp=els.logViewport, content=els.logContent;
+  const data = filteredRows();
+  // if any expanded rows, disable virtualization for predictability
+  const hasExpand = state.expanded.size>0;
+  const rowH = parseInt(getComputedStyle(document.body).getPropertyValue('--row-h'))||36;
+  const total = data.length;
+
+  if(forceReset){ vp.scrollTop=0; }
+
+  if(!hasExpand){
+    state.virtualization=true;
+    const visibleCount = Math.ceil(vp.clientHeight/rowH)+6;
+    const start = Math.max(0, Math.floor(vp.scrollTop/rowH)-3);
+    const end = Math.min(total, start+visibleCount);
+    const topPad = start*rowH, bottomPad = (total-end)*rowH;
+
+    const rowsHtml = data.slice(start,end).map(r=> rowHtml(r)).join('');
+    content.innerHTML = `<div style="height:${topPad}px"></div>${rowsHtml}<div style="height:${bottomPad}px"></div>`;
+  } else {
+    state.virtualization=false;
+    const rowsHtml = data.map(r=> rowHtml(r,true)).join('');
+    content.innerHTML = rowsHtml;
+  }
+}
+function rowHtml(r, includeDetails=false){
+  const id = r.sessionId+'#'+r.ticketIndex;
+  const isJP = (r.matchedMain===state.k && r.matchedBonus===state.bonusCount);
+  const cls = r.prizeAmount>0 ? (isJP?'jp':'win'):'';
+  const exp = state.expanded.has(id);
+  const main = r.numbersMain.join(',');
+  const bonus = (r.numbersBonus||[]).join(',');
+  const tr = `<div class="row-placeholder">
+    <table style="width:100%"><tbody>
+      <tr class="${cls}">
+        <td style="width:60px">${r.ticketIndex}</td>
+        <td style="width:180px">${r.timestamp}</td>
+        <td style="width:60px">${r.day}</td>
+        <td style="width:60px">${r.matchedMain}</td>
+        <td style="width:60px">${r.matchedBonus}</td>
+        <td style="width:100px">${fmt(r.prizeAmount)}</td>
+        <td style="width:100px">${fmt(r.netAmount)}</td>
+        <td>${r.presetName}</td>
+        <td class="expand" data-id="${id}">${exp?'▾':'▸'}</td>
+      </tr>
+      ${exp? `<tr class="details"><td colspan="9" style="text-align:start">
+        <div class="flex"><span class="badge">main: ${main}</span>${bonus?`<span class="badge">bonus: ${bonus}</span>`:''}<span class="badge">spent: ${fmt(r.spentAmount)}</span><span class="badge">net: ${fmt(r.netAmount)}</span><span class="badge">session: ${r.sessionId}</span></div>
+      </td></tr>`:''}
+    </tbody></table>
+  </div>`;
+  return tr;
+}
+els.logContent.addEventListener('click', (e)=>{
+  const td = e.target.closest('.expand'); if(!td) return;
+  const id=td.dataset.id;
+  if(state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id);
+  renderLog(true);
+});
+
+/* =========================
+   CSV Export (chunked)
+   ========================= */
+function exportCSV(){
+  const rows = filteredRows();
+  if(rows.length===0){ toast(state.lang==='fa'?'لاگی برای خروجی نیست.':'No log to export.'); return; }
+  const header = "timestamp,sessionId,ticketIndex,day,numbersMain,numbersBonus,matchedMain,matchedBonus,prizeAmount,spentAmount,netAmount,presetName\n";
+  const blobParts=[header];
+  const CH=20000;
+  for(let i=0;i<rows.length;i+=CH){
+    const part = rows.slice(i,i+CH).map(r=> [
+      r.timestamp, r.sessionId, r.ticketIndex, r.day,
+      `"${r.numbersMain.join(',')}"`, `"${(r.numbersBonus||[]).join(',')}"`,
+      r.matchedMain, r.matchedBonus, r.prizeAmount, r.spentAmount, r.netAmount, `"${r.presetName}"`
+    ].join(",")).join("\n") + "\n";
+    blobParts.push(part);
+  }
+  const blob=new Blob(blobParts,{type:"text/csv;charset=utf-8;"}); const a=document.createElement('a');
+  const url=URL.createObjectURL(blob); a.href=url; a.download=`lotto-${state.sessionId||'session'}.csv`; a.style.display='none'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+/* =========================
+   Sessions / Leaderboard
+   ========================= */
+function refreshSessions(){
+  const obj = JSON.parse(localStorage.getItem(LS_SESSIONS)||'{}');
+  els.sessionList.innerHTML = `<option value="">—</option>` + Object.keys(obj).sort().reverse().map(id=>{
+    const s=obj[id]; return `<option value="${id}">${id} — ${s.presetName} — t:${s.stats?.tickets||0}</option>`;
+  }).join('');
+  // leaderboard
+  const rows = Object.keys(obj).map(id=>{
+    const s=obj[id]; const st=s.stats||{spent:0,paid:0,jackpots:0,tickets:0};
+    const net=(st.paid|0)-(st.spent|0); const roi=(st.spent>0)? ((st.paid/st.spent)-1):0;
+    return `<tr><td>${id}</td><td>${s.presetName}</td><td>${fmt(st.tickets||0)}</td><td>${fmt(st.jackpots||0)}</td><td>${fmt(st.spent||0)}</td><td>${fmt(st.paid||0)}</td><td>${fmt(net)}</td><td>${(roi*100).toFixed(2)}%</td></tr>`;
+  }).join('');
+  $('#leaderTbl tbody').innerHTML = rows;
+}
+els.saveSession.addEventListener('click', ()=>{
+  const obj = JSON.parse(localStorage.getItem(LS_SESSIONS)||'{}');
+  const id = state.sessionId || `manual-${Date.now()}`;
+  obj[id]={
+    savedAt:new Date().toISOString(),
+    presetName:state.presetName,
+    settings:{ n:state.n,k:state.k,bonusCount:state.bonusCount,bonusPool:state.bonusPool,ticketPrice:state.ticketPrice },
+    stats: state.stats
+  };
+  localStorage.setItem(LS_SESSIONS, JSON.stringify(obj));
+  refreshSessions(); toast(state.lang==='fa'?'جلسه ذخیره شد.':'Session saved.');
+});
+els.loadSession.addEventListener('click', ()=>{
+  const id=els.sessionList.value; if(!id) return;
+  const obj = JSON.parse(localStorage.getItem(LS_SESSIONS)||'{}'); const s=obj[id]; if(!s) return;
+  applyPreset(s.presetName); state.stats = s.stats||state.stats; drawAllCharts(); updateKPIs(); renderLog(true);
+  toast(state.lang==='fa'?'جلسه بارگذاری شد.':'Session loaded.');
+});
+els.clearStorage.addEventListener('click', ()=>{ localStorage.removeItem(LS_SETTINGS); localStorage.removeItem(LS_SESSIONS); refreshSessions(); toast(state.lang==='fa'?'پاک شد.':'Cleared.'); });
+
+/* =========================
+   Run controls
+   ========================= */
+function startRun(whichMode){
+  if(state.isRunning) return;
+  state.mode = whichMode;
+  // simple reflect
+  if(whichMode==='simple'){
+    state.targetModeSimple = els.simpleTargetMode.value;
+    state.ticketsPerDaySimple = +els.simpleTicketsPerDay.value||100;
+    state.totalTicketsSimple = +els.simpleTotalTickets.value||50000;
+  }else{
+    state.ticketsPerDay = +els.advTicketsPerDay.value||500;
+    state.totalTickets = +els.advTotalTickets.value||200000;
+  }
+
+  // session
+  state.sessionId = `session-${new Date().toISOString().replace(/[-:TZ.]/g,'').slice(0,14)}`;
+
+  // reset runtime
+  state.rows.length=0; state.expanded.clear(); state.virtualization=true;
+  state.stats={tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}};
+  state.dailyPL.length=0; state.plPoints.length=0; state.roiPoints.length=0;
+
+  // start worker
+  destroyWorker(); worker=createWorker();
+  worker.onmessage = (e)=>{
+    const d=e.data||{};
+    if(d.type==='chunk'){
+      // adopt absolute stats
+      state.stats=d.stats; $('#d_day').textContent=d.day; $('#d_today').textContent=d.todayTickets; $('#d_wins').textContent=d.todayWins;
+      // merge rows
+      if(d.rows && d.rows.length){
+        state.rows.push(...d.rows);
+        // cap memory (virtualization handles viewport)
+        if(state.rows.length>50000) state.rows.splice(0, state.rows.length-50000);
+      }
+      // daily deltas
+      if(d.deltaDays && d.deltaDays.length){
+        for(const dd of d.deltaDays){ state.dailyPL.push({day:dd.day, spent:dd.spent, paid:dd.paid}); }
+      }
+      updateKPIs(); renderMiniLog(); renderLog();
+      // charts
+      state.plPoints.push({x:state.stats.tickets, y:state.stats.net});
+      const roi = state.stats.spent>0 ? (state.stats.paid/state.stats.spent - 1)*100 : 0;
+      state.roiPoints.push({x:state.stats.tickets, y:roi});
+      drawAllCharts();
+      updateProgress();
+    }
+    if(d.type==='done'){
+      // flush deltaDays if any
+      if(d.deltaDays && d.deltaDays.length){
+        for(const dd of d.deltaDays){ state.dailyPL.push({day:dd.day, spent:dd.spent, paid:dd.paid}); }
+      }
+      setRunning(false);
+    }
+  };
+
+  const config = {
+    sessionId:state.sessionId, presetName:state.presetName,
+    n:state.n, k:state.k, bonusCount:state.bonusCount, bonusPool:state.bonusPool, bonusFromMainPool:state.bonusFromMainPool,
+    ticketPrice:state.ticketPrice,
+    prizeEngine:state.prizeEngine, prizeMap:state.prizeMap, basePrizeMap:state.basePrizeMap, multiplier:state.multiplier, powerPlay:state.powerPlay,
+    jackpotBaseMinor:state.jackpotBaseMinor, freePlayCreditMinor:state.freePlayCreditMinor,
+    targetMode:(whichMode==='simple'? state.targetModeSimple : state.targetModeAdv),
+    targetMain:(whichMode==='simple'? state.targetSimpleMain : state.targetMain),
+    targetBonus:(whichMode==='simple'? state.targetSimpleBonus : state.targetBonus),
+    ticketsPerDay:(whichMode==='simple'? state.ticketsPerDaySimple : state.ticketsPerDay),
+    totalTickets:(whichMode==='simple'? state.totalTicketsSimple : state.totalTickets),
+    changeTargetDaily:state.changeTargetDaily, chunkSize:state.chunkSize, delayMs:state.speedMs, stopOnJackpot:state.stopOnJackpot,
+    logMode:state.logMode, usePowerPlay:state.usePowerPlay,
+    range:{ rangeMode:state.rangeMode, multiRanges:state.multiRanges, includeList:state.includeList, excludeList:state.excludeList, maxConsecutive:state.maxConsecutive, evenMin:state.evenMin, evenMax:state.evenMax, sumMin:state.sumMin, sumMax:state.sumMax }
+  };
+  worker.postMessage({type:'start', config});
+  setRunning(true);
+}
+function setRunning(on){
+  state.isRunning=on; state.isPaused=false;
+  if(state.mode==='simple'){
+    els.startSimple.disabled=on; els.pauseSimple.disabled=!on; els.resetSimple.disabled=!on;
+    els.simpleStatus.textContent = on? (state.lang==='fa'?'در حال اجرا…':'Running…'):'';
+  }else{
+    els.startAdv.disabled=on; els.pauseAdv.disabled=!on; els.resetAdv.disabled=!on;
+    els.advStatus.textContent = on? (state.lang==='fa'?'در حال اجرا…':'Running…'):'';
+  }
+}
+function togglePause(){
+  if(!state.isRunning) return;
+  state.isPaused = !state.isPaused;
+  worker?.postMessage({type: state.isPaused?'pause':'resume'});
+}
+function stopRun(aborted){
+  worker?.postMessage({type:'stop'}); destroyWorker();
+  setRunning(false);
+  if(aborted){
+    // reset runtime
+    state.rows.length=0; state.stats={tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}};
+    state.dailyPL.length=0; state.plPoints.length=0; state.roiPoints.length=0;
+    updateKPIs(); renderMiniLog(); renderLog(true); drawAllCharts(); updateProgress();
+  }
+}
+
+/* =========================
+   KPIs, Progress, Mini Log
+   ========================= */
+function updateKPIs(){
+  // simple
+  els.s_tickets.textContent = fmt(state.stats.tickets);
+  els.s_days.textContent = fmt(state.stats.days);
+  const hits2 = (state.stats.matchCounts['2']|0) + (state.stats.matchCounts['2+1']|0) + (state.stats.matchCounts['2+2']|0);
+  const hits3 = (state.stats.matchCounts['3']|0) + (state.stats.matchCounts['3+1']|0) + (state.stats.matchCounts['3+2']|0);
+  const hits4 = (state.stats.matchCounts['4']|0) + (state.stats.matchCounts['4+1']|0) + (state.stats.matchCounts['4+2']|0);
+  els.s_hits.textContent = `${fmt(hits2)}/${fmt(hits3)}/${fmt(hits4)}`;
+  els.s_jp.textContent = fmt(state.stats.jackpots);
+  els.s_spent.textContent = fmt(state.stats.spent);
+  const net = state.stats.paid - state.stats.spent;
+  els.s_net.textContent = fmt(net); els.s_net.style.color = net>=0? getCss('--ok'): getCss('--danger');
+
+  // advanced
+  els.k_tickets.textContent = fmt(state.stats.tickets);
+  els.k_days.textContent = fmt(state.stats.days);
+  els.k_jackpots.textContent = fmt(state.stats.jackpots);
+  els.k_spent.textContent = fmt(state.stats.spent);
+  els.k_paid.textContent = fmt(state.stats.paid);
+  $('#k_net').textContent = fmt(net); $('#k_net').style.color = net>=0? getCss('--ok'): getCss('--danger');
+}
+function updateProgress(){
+  const total = (state.mode==='simple'? state.totalTicketsSimple : state.totalTickets);
+  const pct = Math.floor((state.stats.tickets/(total||1))*100);
+  els.progressBar.style.width = Math.max(0,Math.min(100,pct))+'%';
+  els.progressText.textContent = (state.lang==='fa'? `پیشرفت: ${fmt(state.stats.tickets)}/${fmt(total)} (${pct}%)`
+                                  : `Progress: ${fmt(state.stats.tickets)}/${fmt(total)} (${pct}%)`);
+}
+function renderMiniLog(){
+  const N = parseInt(els.miniLogN.value)||200;
+  const slice = state.rows.slice(-N);
+  const body = slice.map(r=> `<tr><td>${r.ticketIndex}</td><td>${r.matchedMain}</td><td>${r.matchedBonus}</td><td>${fmt(r.prizeAmount)}</td><td>${fmt(r.netAmount)}</td></tr>`).join('');
+  els.miniLogTbl.querySelector('tbody').innerHTML = body;
+}
+
+/* =========================
+   Charts update
+   ========================= */
+function drawAllCharts(){
+  // simple P/L
+  drawLine(els.simplePL, state.plPoints);
+  // advanced
+  drawLine(els.advPL, state.plPoints);
+  drawLine(els.advROI, state.roiPoints, {min:-100,max:200}); // ROI% cap view
+  // daily P&L bars
+  const daily = state.dailyPL.map(d=> (d.paid|0)-(d.spent|0));
+  drawBars(els.advDaily, daily);
+  // distribution
+  const dist = {};
+  const mc = state.stats.matchCounts||{};
+  for(const k in mc){ dist[k]=mc[k]; }
+  drawDonut(els.advDist, dist);
+}
+
+/* =========================
+   Init
+   ========================= */
+function init(){
+  loadSettings();
+  loadPresetOptions();
+  applyPreset(state.presetName);
+  // reflect UI
+  els.presetTop.value=state.presetName;
+  els.presetTop.addEventListener('change', ()=> applyPreset(els.presetTop.value));
+  setMode(state.mode);
+  applyI18n();
+  // reflect simple
+  els.simpleTargetMode.value=state.targetModeSimple;
+  els.simpleTicketsPerDay.value=state.ticketsPerDaySimple; els.simpleTotalTickets.value=state.totalTicketsSimple;
+  renderTargetInputs('simple');
+  // reflect advanced
+  els.advTargetMode.value=state.targetModeAdv;
+  els.advTicketsPerDay.value=state.ticketsPerDay; els.advTotalTickets.value=state.totalTickets; els.changeTargetDaily.checked=state.changeTargetDaily;
+  els.rangeMode.value=state.rangeMode; els.maxConsecutive.value=state.maxConsecutive||5;
+  els.evenMin.value = state.evenMin??''; els.evenMax.value = state.evenMax??'';
+  els.sumMin.value = state.sumMin??''; els.sumMax.value = state.sumMax??'';
+  els.includeList.value = (state.includeList||[]).join(','); els.excludeList.value=(state.excludeList||[]).join(',');
+  els.chunkSize.value=state.chunkSize; els.speedMs.value=state.speedMs; $('#stopOnJackpot').checked=state.stopOnJackpot;
+  $('#logMode').value=state.logMode;
+  // ranges
+  els.rangesBox.innerHTML=''; (state.multiRanges||[]).forEach(([a,b])=> addRangeItem(a,b));
+  renderLog(true); renderMiniLog(); drawAllCharts(); updateProgress(); refreshSessions();
+}
+window.addEventListener('beforeunload', destroyWorker);
+init();
+
+// keyboard shortcuts
+window.addEventListener('keydown', (e)=>{
+  if(e.key===' '){ e.preventDefault(); togglePause(); }
+  else if(e.key==='s' || e.key==='S'){ startRun(state.mode); }
+  else if(e.key==='r' || e.key==='R'){ stopRun(true); }
+  else if(e.key==='t' || e.key==='T'){ els.themeToggle.click(); }
+  else if(e.key==='l' || e.key==='L'){ els.dirLangToggle.click(); }
+});
+
+})();
+</script>
+</body>
+</html>

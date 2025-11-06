@@ -118,6 +118,7 @@ function handleCellClick(num, cell) {
     
     renderGrid();
     updateAddTicketButton();
+    notifySelectionChange();
   } catch (e) {
     console.error('Cell click error:', e);
   }
@@ -146,6 +147,7 @@ function updateGridConfig(max, count) {
   
   renderGrid();
   updateAddTicketButton();
+  notifySelectionChange();
 }
 
 // Update counters
@@ -163,6 +165,18 @@ function updateCounters() {
   if (excludedCounter) {
     excludedCounter.textContent = `حذف: ${State.excludedNumbers.size}`;
   }
+}
+
+function notifySelectionChange() {
+  const event = new CustomEvent('ticketSelectionChanged', {
+    detail: {
+      selected: [...State.selectedNumbers],
+      pinned: Array.from(State.pinnedNumbers),
+      preferred: Array.from(State.preferredNumbers),
+      excluded: Array.from(State.excludedNumbers)
+    }
+  });
+  document.dispatchEvent(event);
 }
 
 // Quick pick - respects Pinned/Preferred/Excluded
@@ -211,6 +225,7 @@ function quickPick() {
     
     renderGrid();
     updateAddTicketButton();
+    notifySelectionChange();
   } catch (e) {
     console.error('Quick pick error:', e);
     showToast('Quick pick failed', 'error');
@@ -222,6 +237,7 @@ function clearSelection() {
   State.selectedNumbers = [];
   renderGrid();
   updateAddTicketButton();
+  notifySelectionChange();
 }
 
 // Clear pinned
@@ -229,6 +245,7 @@ function clearPinned() {
   State.pinnedNumbers.clear();
   renderGrid();
   updateAddTicketButton();
+  notifySelectionChange();
 }
 
 // Clear preferred
@@ -236,6 +253,7 @@ function clearPreferred() {
   State.preferredNumbers.clear();
   renderGrid();
   updateAddTicketButton();
+  notifySelectionChange();
 }
 
 // Clear excluded
@@ -243,6 +261,7 @@ function clearExcluded() {
   State.excludedNumbers.clear();
   renderGrid();
   updateAddTicketButton();
+  notifySelectionChange();
 }
 
 // Add ticket to queue
@@ -257,6 +276,7 @@ function addTicket() {
   renderGrid();
   updateAddTicketButton();
   renderQueue();
+  notifySelectionChange();
   
   // Notify worker
   const event = new CustomEvent('ticketQueueChanged', { detail: { queue: State.ticketQueue } });
@@ -267,6 +287,7 @@ function addTicket() {
 function clearQueue() {
   State.ticketQueue = [];
   renderQueue();
+  notifySelectionChange();
   
   // Notify worker
   const event = new CustomEvent('ticketQueueChanged', { detail: { queue: [] } });

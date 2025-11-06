@@ -1,0 +1,1235 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Lottery Simulator — Pro (Simple/Advanced • Dual‑Currency • RTL/LTR)</title>
+<style>
+  :root{
+    --bg:#0b0f16; --surface:#121829; --surface-2:#172037; --text:#e9efff; --muted:#9da8bb;
+    --accent:#60a5fa; --accent-2:#22d3ee; --ok:#10b981; --warn:#f59e0b; --danger:#ef4444;
+    --border:#22304d; --chip:#18223a; --stripe:#0e1526; --shadow:0 10px 24px rgba(0,0,0,.24);
+    --r:12px; --row-h:36px;
+    /* log columns (grid) */
+    --c0:64px; --c1:180px; --c2:60px; --c3:60px; --c4:60px; --c5:140px; --c6:140px; --c7:1fr; --c8:44px;
+  }
+  [data-theme="light"]{
+    --bg:#f7f8fc; --surface:#ffffff; --surface-2:#f3f6ff; --text:#0f172a; --muted:#5b6473;
+    --accent:#2563eb; --accent-2:#06b6d4; --ok:#16a34a; --warn:#d97706; --danger:#dc2626;
+    --border:#e7ebf4; --chip:#edf1fb; --stripe:#f6f8ff; --shadow:0 8px 18px rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 ui-sans-serif,system-ui,"Inter","Vazirmatn","Segoe UI",Tahoma,Arial}
+  h1,h2,h3{margin:.25rem 0 .6rem} h1{font-size:1.2rem} h2{font-size:1.06rem} h3{font-size:1rem;color:var(--muted)}
+  .container{max-width:1280px;margin:0 auto;padding:16px}
+
+  /* Header */
+  .toolbar{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,var(--bg),rgba(0,0,0,0) 85%);padding:6px 0}
+  .bar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .brand{display:flex;gap:8px;align-items:center}
+  .chip{display:inline-flex;gap:6px;align-items:center;padding:.22rem .5rem;border-radius:999px;background:var(--chip);border:1px solid var(--border);color:var(--muted);font-weight:700;font-size:12px}
+
+  /* Mode bar (sticky) */
+  .modebar{position:sticky; top:8px; z-index:25; margin:8px 0; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:8px}
+  .modebar .row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+  .chip-nav{display:inline-flex; align-items:center; gap:6px; padding:.28rem .6rem; border-radius:999px; border:1px solid var(--border); background:var(--chip); cursor:pointer; font-weight:800; user-select:none}
+  .chip-nav:hover{box-shadow:var(--shadow)}
+  .chip-nav[data-active="true"]{background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#06101a; border:none}
+  .subnav{display:flex; gap:6px; flex-wrap:wrap}
+
+  label{display:block;font-weight:800;margin:.2rem 0 .25rem}
+  input,select,textarea{width:100%;padding:.52rem .6rem;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text)}
+  select{appearance:auto}
+  select:hover, input:hover{border-color:var(--accent)}
+  .btn{cursor:pointer;border-radius:10px;padding:.56rem .8rem;border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(0,0,0,.09));color:var(--text);font-weight:800;transition:.18s}
+  .btn:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+  .btn:active{transform:translateY(0)}
+  .btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent-2));border:none;color:#06101a}
+  .btn.warn{background:linear-gradient(180deg,#f87171,#ef4444);border:none;color:#fff}
+  .btn.ghost{background:transparent;border-color:transparent}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  body.running .btn.primary{animation:pulse 1.3s ease-in-out infinite}
+  @keyframes pulse{0%{transform:translateZ(0)}50%{transform:scale(1.02)}100%{transform:translateZ(0)}}
+
+  .muted{color:var(--muted)} .ok{color:var(--ok)} .warn{color:var(--warn)} .danger{color:var(--danger)}
+  .small{font-size:12px}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .center{display:flex;justify-content:center;align-items:center}
+  .between{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .section-desc{margin:.15rem 0 .45rem;color:var(--muted);font-size:13px}
+  .sep{height:1px;background:var(--border);margin:12px 0}
+
+  /* KPI */
+  .kpi{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  @media(max-width:1024px){.kpi{grid-template-columns:repeat(2,1fr)}}
+  .kpi .item{padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px}
+  .kpi .title{font-weight:900;color:var(--muted);font-size:11px;letter-spacing:.02em;text-transform:uppercase}
+  .kpi .value{font-size:1.1rem;font-weight:900;margin-top:2px}
+
+  /* Switch */
+  .switch{display:inline-flex;align-items:center;gap:8px}
+  .switch input{appearance:none;width:46px;height:26px;background:var(--chip);border:1px solid var(--border);border-radius:999px;position:relative;outline:none;transition:.2s}
+  .switch input:hover{box-shadow:0 0 0 3px rgba(96,165,250,.2)}
+  .switch input:checked{background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .switch input::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked::after{left:24px}
+
+  /* Charts */
+  canvas{display:block;width:100%;height:240px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px}
+  .chart-wrap{position:relative}
+  .tooltip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.25rem .4rem;font-size:12px;color:var(--text);box-shadow:var(--shadow);transform:translate(-50%,-110%);white-space:nowrap}
+
+  /* Progress */
+  .progress{height:10px;background:var(--chip);border:1px solid var(--border);border-radius:99px;overflow:hidden}
+  .progress .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .25s linear}
+
+  /* Tabs */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+  .tabs button{padding:.48rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);transition:.18s}
+  .tabs button:hover{box-shadow:var(--shadow)}
+  .tabs .active{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#06101a;border:none}
+
+  /* Log (CSS Grid for perfect alignment) */
+  .log-header,.log-row{
+    display:grid;
+    grid-template-columns:var(--c0) var(--c1) var(--c2) var(--c3) var(--c4) var(--c5) var(--c6) var(--c7) var(--c8);
+    gap:0; align-items:center; min-height:var(--row-h);
+  }
+  .log-header{background:var(--surface-2);border:1px solid var(--border);border-radius:10px}
+  .log-header div{padding:8px 10px;border-inline-end:1px solid var(--border);font-weight:900}
+  .log-header div:last-child{border:none}
+  .log-header .sortable{cursor:pointer;position:relative}
+  .log-header .sortable:hover{background:rgba(255,255,255,.04)}
+  .log-header .sortable[data-dir="asc"]::after{content:"▲";position:absolute;inset-inline-end:8px; color:var(--muted); font-size:10px}
+  .log-header .sortable[data-dir="desc"]::after{content:"▼";position:absolute;inset-inline-end:8px; color:var(--muted); font-size:10px}
+
+  .log-viewport{height:380px;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;position:relative;margin-top:6px}
+  .spacer{height:0}
+  .log-row{padding:0 6px;border-bottom:1px solid var(--border)}
+  .log-row:hover{background:var(--stripe)}
+  .log-row.win{background:rgba(16,185,129,.06)}
+  .log-row.jp{background:rgba(99,102,241,.10)}
+  .expander{cursor:pointer;user-select:none;text-align:center}
+
+  .details{padding:6px 10px;background:rgba(255,255,255,.03);border-bottom:1px dashed var(--border);display:none}
+  .details.show{display:block}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:.2rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--chip);font-size:12px;color:var(--muted);font-weight:800;margin:2px}
+
+  .table-wrap{border:1px solid var(--border);border-radius:10px;background:var(--surface-2);overflow:hidden}
+  .table-wrap table{width:100%;border-collapse:separate;border-spacing:0}
+  .table-wrap th,.table-wrap td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap}
+  .table-wrap tbody tr:nth-child(even){background:var(--stripe)}
+  .mini-viewport{max-height:280px; overflow:auto} /* برای لاگ حالت ساده */
+
+  .hide{display:none!important}
+  .footer{color:var(--muted);font-size:12px;text-align:center;margin:12px 0}
+
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px;z-index:1000}
+  .modal.hide{display:none}
+  .dialog{max-width:820px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px}
+
+  /* Toast */
+  .toast-wrap{position:fixed;inset-inline-end:16px;inset-block-end:16px;display:flex;flex-direction:column;gap:8px;z-index:1200}
+  .toast{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:.55rem .7rem}
+</style>
+</head>
+<body data-theme="dark">
+<div class="container">
+
+  <!-- ===== HEADER ===== -->
+  <div class="toolbar">
+    <div class="bar">
+      <div class="brand">
+        <h1>🎯 <span data-i18n="app.title">شبیه‌ساز لاتاری — Pro</span></h1>
+        <span class="chip">Worker</span><span class="chip">Crypto RNG</span><span class="chip">Virtual Log</span><span class="chip">CSV</span><span class="chip">FA/EN</span>
+      </div>
+
+      <div class="brand" style="gap:12px">
+        <div>
+          <label class="muted" for="presetTop" data-i18n="labels.preset">پریست</label>
+          <select id="presetTop" title="Preset" style="min-width:260px"></select>
+        </div>
+        <button id="openPresetPicker" class="btn" title="Quick pick">🧩 <span data-i18n="toolbar.presetPicker">انتخاب سریع</span></button>
+
+        <div class="between" style="gap:6px">
+          <button id="openCurrency" class="btn" title="Currency / FX">💱 <span data-i18n="currency.btn">ارز</span></button>
+          <span id="currencyChip" class="chip"></span>
+        </div>
+
+        <button id="modeToggle" class="btn" title="Mode">🧭 <span data-i18n="toolbar.mode">حالت: ساده</span></button>
+        <button id="themeToggle" class="btn" title="Theme">🌓 <span data-i18n="toolbar.theme">تم</span></button>
+        <button id="dirLangToggle" class="btn" title="RTL/LTR + Lang">↔️ <span data-i18n="toolbar.dirlang">RTL/LTR + زبان</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODE BAR (sticky helper) ===== -->
+  <div id="modeBar" class="modebar">
+    <div class="row">
+      <div class="between" style="gap:8px">
+        <span id="modeBadge" class="chip">Simple</span>
+        <div class="subnav">
+          <span id="chipSimple"   class="chip-nav" data-active="true">Simple</span>
+          <span id="chipAdvanced" class="chip-nav">Advanced</span>
+          <span id="chipConsole"  class="chip-nav">🧭 Console</span>
+        </div>
+      </div>
+      <div class="subnav">
+        <span id="chipSettings" class="chip-nav">⚙️ Settings</span>
+        <span id="chipDaily"    class="chip-nav">📆 Daily</span>
+        <span id="chipFilters"  class="chip-nav">🎯 Filters</span>
+        <span id="chipLog"      class="chip-nav">📜 Log</span>
+        <span id="chipSessions" class="chip-nav">🏁 Sessions</span>
+        <span id="chipHelp"     class="chip-nav">ℹ️ Help</span>
+      </div>
+    </div>
+    <p class="section-desc small" id="modeBarHint">حالت فعلی در نشان بالا مشخص است. از چیپ‌ها برای پرش سریع به بخش‌ها استفاده کنید.</p>
+  </div>
+
+  <!-- ===== RUN CONSOLE (always visible) ===== -->
+  <section id="runConsole" class="card" aria-labelledby="rcTitle">
+    <h2 id="rcTitle">🧭 <span data-i18n="rc.title">کنسول اجرا (ثابت)</span> <span class="chip" id="presetInfoChip"></span></h2>
+    <p class="section-desc" data-i18n="rc.desc">از اینجا شبیه‌سازی را شروع/توقف کنید؛ KPIها، نمودارها و پیشرفت همیشه در دسترس‌اند.</p>
+
+    <div class="grid-4">
+      <div>
+        <label for="gcTargetMode" data-i18n="target.mode">حالت تارگت</label>
+        <select id="gcTargetMode" title="Random: هر بار هدف جدید؛ Manual: هدف از بخش تنظیمات">
+          <option value="random" data-i18n="target.random">رندوم</option>
+          <option value="manual" data-i18n="target.manual">دستی</option>
+        </select>
+        <p class="small muted">Random: هدف داخلی تولید می‌شود؛ Manual: از بخش Target مقدار دهید.</p>
+      </div>
+      <div>
+        <label for="gcTicketsPerDay" data-i18n="daily.ticketsPerDay">بلیط در روز</label>
+        <input id="gcTicketsPerDay" type="number" min="1" value="500">
+        <p class="small muted">پس از رسیدن به این مقدار، روز جدید آغاز می‌شود.</p>
+      </div>
+      <div>
+        <label for="gcTotalTickets" data-i18n="daily.totalTickets">کل بلیط‌ها</label>
+        <input id="gcTotalTickets" type="number" min="1" value="200000">
+        <p class="small muted">تعداد کل بلیط‌های شبیه‌سازی در این جلسه.</p>
+      </div>
+      <div>
+        <label data-i18n="labels.ticketPrice">قیمت بلیط</label>
+        <div class="between">
+          <button id="priceMinus" class="btn" title="−1 واحد ارزی">−</button>
+          <input id="gcTicketPrice" type="number" min="0" step="1">
+          <button id="pricePlus" class="btn" title="+1 واحد ارزی">+</button>
+        </div>
+        <div class="muted small" id="priceDisplay"></div>
+      </div>
+    </div>
+
+    <div class="grid-4" style="margin-top:8px">
+      <div class="switch"><input type="checkbox" id="gcStopOnJackpot"><label for="gcStopOnJackpot">⛳ <span data-i18n="perf.stop">توقف در جک‌پات</span></label></div>
+      <div>
+        <label data-i18n="log.mode">سطح لاگ</label>
+        <select id="gcLogMode" title="All: همه؛ Wins: فقط بردها؛ None: بدون ثبت ردیف"><option value="all">All</option><option value="wins">Wins</option><option value="none">None</option></select>
+      </div>
+      <div>
+        <label data-i18n="perf.chunk">Batch/Chunk</label>
+        <input id="gcChunk" type="number" min="100" value="1000">
+        <p class="small muted">حجم کار هر نوبت Worker (بیشتر = سریع‌تر، UI سخت‌تر)</p>
+      </div>
+      <div>
+        <label data-i18n="perf.throttle">UI Throttle (ms)</label>
+        <input id="gcThrottle" type="number" min="0" value="16">
+        <p class="small muted">وقفه پردازش بین Batchها برای نرمی UI.</p>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="between" role="group" aria-label="Run controls">
+      <div class="between" style="gap:8px">
+        <button id="gcStart" class="btn primary">▶️ <span data-i18n="btn.start">شروع</span></button>
+        <button id="gcPause" class="btn" disabled>⏸️ <span data-i18n="btn.pause">توقف/ادامه</span></button>
+        <button id="gcReset" class="btn warn" disabled>🗑️ <span data-i18n="btn.reset">ریست</span></button>
+        <button id="gcExport" class="btn" title="Export CSV">⬇️ <span data-i18n="btn.export">خروجی CSV</span></button>
+      </div>
+      <div id="rcStatus" class="muted small" aria-live="polite"></div>
+    </div>
+
+    <div class="kpi" style="margin-top:10px">
+      <div class="item"><div class="title">Tickets</div><div class="value" id="k_tickets">0</div></div>
+      <div class="item"><div class="title">Days</div><div class="value" id="k_days">0</div></div>
+      <div class="item"><div class="title">Jackpots</div><div class="value" id="k_jackpots">0</div></div>
+      <div class="item"><div class="title">Spent</div><div class="value" id="k_spent">0</div></div>
+      <div class="item"><div class="title">Paid</div><div class="value" id="k_paid">0</div></div>
+      <div class="item"><div class="title">Net</div><div class="value" id="k_net">0</div></div>
+    </div>
+
+    <div class="grid-2" style="margin-top:10px">
+      <div class="card" style="padding:10px">
+        <h3>📈 <span data-i18n="chart.pl">سود/زیان تجمعی</span></h3>
+        <div class="chart-wrap">
+          <canvas id="plChart" width="600" height="240"></canvas>
+          <div id="plTip" class="tooltip hide"></div>
+        </div>
+        <p class="small muted">هاور برای مشاهده مقدار نقطهٔ نزدیک؛ خط قرمز = سطح صفر.</p>
+      </div>
+      <div class="card" style="padding:10px">
+        <h3>📉 ROI</h3>
+        <canvas id="roiChart" width="600" height="240"></canvas>
+        <p class="small muted">بازده تجمیعی برحسب درصد.</p>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:10px">
+      <div class="card" style="padding:10px"><h3>📆 Daily P&L</h3><canvas id="dailyChart" width="600" height="240"></canvas></div>
+      <div class="card" style="padding:10px"><h3>🎯 Hit Distribution</h3><canvas id="distChart" width="600" height="240"></canvas></div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="progress"><div class="bar" id="progressBar"></div></div>
+    <div id="progressText" class="small muted"></div>
+  </section>
+
+  <!-- ===== SIMPLE CONTENT ===== -->
+  <section id="simpleArea" class="card">
+    <h2>✨ <span data-i18n="simple.title">حالت ساده</span></h2>
+    <p class="section-desc" data-i18n="desc.simple">در بالا تنظیمات ضروری و نمودارها را دارید؛ اینجا آخرین رکوردها را سریع می‌بینید.</p>
+    <div class="grid-2">
+      <div class="card" style="padding:10px">
+        <h3>📜 <span data-i18n="simple.miniLog">لاگ خلاصه (آخرین N)</span></h3>
+        <p class="section-desc" data-i18n="desc.miniLog">برای جلوگیری از اسکرول طولانی، لاگ درون این باکس اسکرول می‌شود.</p>
+        <div class="between"><label class="muted small" for="miniLogN">N</label>
+          <select id="miniLogN"><option>50</option><option selected>200</option><option>500</option></select>
+        </div>
+        <div class="table-wrap mini-viewport" style="margin-top:6px">
+          <table id="miniLogTbl"><thead><tr><th>#</th><th>m</th><th>b</th><th>prize</th><th>net</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="card" style="padding:10px">
+        <h3>ℹ️ <span data-i18n="simple.help">راهنمای سریع</span></h3>
+        <p class="muted small">
+          • Start: آغاز شبیه‌سازی؛ Space: Pause/Resume؛ R: Reset. <br>
+          • قیمت بلیط در «کنسول اجرا» تنظیم می‌شود و دو‌ارزی قابل نمایش است. <br>
+          • CSV خروجی بدون هنگ، حتی در لاگ‌های بزرگ.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ADVANCED ===== -->
+  <section id="advancedArea" class="card hide">
+    <h2>🛠️ <span data-i18n="adv.title">حالت حرفه‌ای</span></h2>
+    <p class="section-desc" data-i18n="desc.adv">داشبورد و کنترل‌ها بالا ثابت هستند؛ اینجا تنظیمات و ابزارهای پیشرفته را ببینید.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="active" data-tab="settings" role="tab" aria-selected="true" data-i18n="tabs.settings">تنظیمات</button>
+      <button data-tab="daily" role="tab" data-i18n="tabs.daily">روزانه</button>
+      <button data-tab="filters" role="tab" data-i18n="tabs.filters">فیلترها</button>
+      <button data-tab="log" role="tab" data-i18n="tabs.log">لاگ</button>
+      <button data-tab="sessions" role="tab" data-i18n="tabs.sessions">جلسات</button>
+      <button data-tab="help" role="tab" data-i18n="tabs.help">راهنما</button>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="tab" id="tab-settings">
+      <p class="section-desc" data-i18n="desc.settings">ساختار بازی، جوایز و تارگت را تنظیم کنید.</p>
+      <div class="grid-3">
+        <div><label data-i18n="labels.maxNumber">بازهٔ اصلی (۱ تا N)</label><input id="advN" type="number" min="1"></div>
+        <div><label data-i18n="labels.k">K (تعداد اعداد)</label><input id="advK" type="number" min="1"></div>
+        <div><label data-i18n="labels.bonusCount">تعداد بونس</label><input id="advBCount" type="number" min="0"></div>
+        <div><label data-i18n="labels.bonusPool">استخر بونس (۱ تا M)</label><input id="advBPool" type="number" min="0"></div>
+        <div class="switch"><input type="checkbox" id="usePowerPlay"><label for="usePowerPlay">Power Play</label></div>
+        <div class="switch"><input type="checkbox" id="changeTargetDaily" checked><label for="changeTargetDaily" data-i18n="daily.changeDaily">تغییر تارگت روزانه</label></div>
+      </div>
+
+      <div class="sep"></div>
+      <h3>💰 <span data-i18n="prizes.title">جوایز</span></h3>
+      <p class="section-desc" data-i18n="desc.prizes">از پریست پر می‌شود؛ کلیدها مثل 3 یا 4+1. مقدار «JACKPOT» یا «FREE_PLAY» نیز معتبر است.</p>
+      <div id="prizeTableWrap" class="table-wrap"></div>
+      <div class="center" style="gap:8px;margin-top:8px">
+        <button id="resetPrizeToPreset" class="btn">↩️ <span data-i18n="prizes.reset">بازنشانی به پریست</span></button>
+        <button id="genTarget" class="btn">🎲 <span data-i18n="target.generate">تولید تارگت تصادفی</span></button>
+      </div>
+
+      <div class="sep"></div>
+      <h3>🎯 <span data-i18n="target.title">تارگت دستی</span></h3>
+      <p class="section-desc" data-i18n="desc.target">در حالت Random به‌صورت خودکار تعیین می‌شود؛ در حالت Manual از اینجا وارد کنید.</p>
+      <div id="advTargetMain" class="between" style="gap:6px;flex-wrap:wrap"></div>
+      <div id="advTargetBonus" class="between" style="gap:6px;flex-wrap:wrap"></div>
+    </div>
+
+    <!-- DAILY -->
+    <div class="tab hide" id="tab-daily">
+      <p class="section-desc" data-i18n="desc.daily">X بلیط در روز + Carryover دقیق. شمارنده‌های امروز و روز فعلی را می‌بینید.</p>
+      <div class="grid-3">
+        <div><label data-i18n="daily.ticketsPerDay">بلیط در روز</label><input id="advTicketsPerDay" type="number" min="1" value="500"></div>
+        <div><label data-i18n="daily.totalTickets">کل بلیط‌ها</label><input id="advTotalTickets" type="number" min="1" value="200000"></div>
+        <div class="switch"><input type="checkbox" id="stopOnJackpot"><label for="stopOnJackpot">⛳ <span data-i18n="perf.stop">توقف در جک‌پات</span></label></div>
+      </div>
+      <div class="sep"></div>
+      <div class="kpi">
+        <div class="item"><div class="title">Day</div><div class="value" id="d_day">1</div></div>
+        <div class="item"><div class="title">Today Tickets</div><div class="value" id="d_today">0</div></div>
+        <div class="item"><div class="title">Today Wins</div><div class="value" id="d_wins">0</div></div>
+      </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="tab hide" id="tab-filters">
+      <h3>🎯 <span data-i18n="range.title">فیلتر بازه‌ای حرفه‌ای</span></h3>
+      <p class="section-desc" data-i18n="desc.filters">فقط تولید بلیط را محدود می‌کنند؛ قرعه‌کشی بی‌طرف است (وزن‌دهی نداریم).</p>
+      <div class="grid-3">
+        <div><label data-i18n="range.mode">حالت</label>
+          <select id="rangeMode"><option value="off" selected data-i18n="range.off">خاموش</option><option value="all" data-i18n="range.all">All-in-range</option><option value="any" data-i18n="range.any">At-least-one</option></select>
+        </div>
+        <div><label>Max consecutive</label><input id="maxConsecutive" type="number" min="1" value="5"></div>
+        <div><label>Even (min-max)</label><div class="between" style="gap:6px"><input id="evenMin" type="number" style="width:100px"><input id="evenMax" type="number" style="width:100px"></div></div>
+      </div>
+      <div class="grid-3">
+        <div><label>Sum (min-max)</label><div class="between" style="gap:6px"><input id="sumMin" type="number" style="width:100px"><input id="sumMax" type="number" style="width:100px"></div></div>
+        <div><label>Include (must contain all)</label><input id="includeList" placeholder="e.g. 7,13"></div>
+        <div><label>Exclude</label><input id="excludeList" placeholder="e.g. 1,2,3"></div>
+      </div>
+      <div class="sep"></div>
+      <label>Multi-range</label>
+      <div id="rangesBox" class="between" style="gap:8px;flex-wrap:wrap"></div>
+      <div class="between" style="gap:8px;margin-top:6px">
+        <button id="addRange" class="btn">➕ <span>افزودن بازه</span></button>
+        <button id="clearRanges" class="btn">🧹 <span>پاک‌سازی</span></button>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="tab hide" id="tab-log">
+      <p class="section-desc" data-i18n="desc.log">سورت/فیلتر/جستجو/Expand + CSV؛ رندر سریع با مجازی‌سازی.</p>
+
+      <div class="between">
+        <div class="between" style="gap:10px">
+          <label class="switch"><input type="checkbox" id="filterWins"><span> <span data-i18n="log.onlyWins">فقط بردها</span></span></label>
+          <label class="between small" style="gap:4px"><span>min</span><input id="prizeMin" type="number" style="width:90px"></label>
+          <label class="between small" style="gap:4px"><span>max</span><input id="prizeMax" type="number" style="width:90px"></label>
+          <label class="between small" style="gap:4px"><span>match≥</span><input id="matchAtLeast" type="number" style="width:70px" min="0"></label>
+        </div>
+        <div class="between" style="gap:8px">
+          <input id="searchLog" placeholder="جستجو…" />
+          <button id="exportCsvAdv" class="btn">⬇️ <span data-i18n="btn.export">خروجی CSV</span></button>
+        </div>
+      </div>
+
+      <div class="log-header" id="logHeader">
+        <div class="sortable" data-col="ticketIndex">#</div>
+        <div class="sortable" data-col="timestamp">timestamp</div>
+        <div class="sortable" data-col="day">day</div>
+        <div class="sortable" data-col="matchedMain">m</div>
+        <div class="sortable" data-col="matchedBonus">b</div>
+        <div class="sortable" data-col="prizeAmount">prize</div>
+        <div class="sortable" data-col="netAmount">net</div>
+        <div class="sortable" data-col="presetName">preset</div>
+        <div>⇵</div>
+      </div>
+      <div id="logViewport" class="log-viewport">
+        <div id="logContent"></div>
+      </div>
+      <div class="small muted" style="margin-top:6px">* با Expand، برای سازگاری، مجازی‌سازی موقتاً غیرفعال می‌شود.</div>
+    </div>
+
+    <!-- SESSIONS -->
+    <div class="tab hide" id="tab-sessions">
+      <p class="section-desc" data-i18n="desc.sessions">نشست‌ها را ذخیره و مقایسه کنید (Net/ROI/Jackpots).</p>
+      <div class="between" style="gap:8px">
+        <button id="saveSession" class="btn">💾 <span data-i18n="btn.save">ذخیرهٔ جلسه</span></button>
+        <select id="sessionList" style="max-width:320px"></select>
+        <button id="loadSession" class="btn">📤 <span data-i18n="btn.load">بارگذاری</span></button>
+        <button id="clearStorage" class="btn">🧹 <span data-i18n="btn.clear">پاک‌سازی</span></button>
+      </div>
+      <div class="sep"></div>
+      <div class="table-wrap">
+        <table id="leaderTbl"><thead><tr><th>Session</th><th>Preset</th><th>Tickets</th><th>Jackpots</th><th>Spent</th><th>Paid</th><th>Net</th><th>ROI</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- HELP -->
+    <div class="tab hide" id="tab-help">
+      <h3>📘 README</h3>
+      <p class="muted small">
+        • اجرا: فایل را باز کنید. Worker + Batch + Throttle → UI نرم. <br>
+        • RNG: crypto + Fisher–Yates؛ اعداد یکتا. <br>
+        • پول: همه چیز در minor units؛ نمایش دو‌ارزی اختیاری. <br>
+        • CSV: استریم بدون هنگ. <br>
+        • کلیدها: Space=Pause/Resume، S=Start، R=Reset، T=Theme، L=RTL/LTR.
+      </p>
+    </div>
+  </section>
+
+  <p class="footer">© Lottery Simulator — Pro • Worker • Canvas Charts • Dual‑Currency • FA/EN + RTL/LTR</p>
+</div>
+
+<!-- ===== PRESET QUICK PICK MODAL ===== -->
+<div id="presetModal" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="presetModalTitle">
+  <div class="dialog">
+    <h3 id="presetModalTitle">🧩 <span data-i18n="modal.preset.title">انتخاب سریع پریست</span></h3>
+    <p class="section-desc" data-i18n="modal.preset.desc">اگر دراپ‌داون باز نمی‌شود، از این لیست استفاده کنید.</p>
+    <div id="presetCards" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+    <div class="sep"></div>
+    <div class="between" style="justify-content:flex-end;gap:8px">
+      <button id="closePresetModal" class="btn">✖️ <span data-i18n="modal.close">بستن</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CURRENCY / FX MODAL ===== -->
+<div id="currencyModal" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="currencyTitle">
+  <div class="dialog">
+    <h3 id="currencyTitle">💱 <span data-i18n="currency.title">تنظیمات ارز و تبدیل</span></h3>
+    <p class="section-desc" data-i18n="currency.desc">«تک‌ارزی» یا «دو‌ارزی» با نرخ تبدیل دستی. در حالت دو‌ارزی، KPI/لاگ هر دو ارز را نشان می‌دهند.</p>
+
+    <div class="grid-3">
+      <div>
+        <label data-i18n="currency.mode">حالت نمایش</label>
+        <select id="curMode"><option value="single">Single</option><option value="dual">Dual (Convert)</option></select>
+      </div>
+      <div class="switch"><input type="checkbox" id="curShowBoth" checked><label for="curShowBoth" data-i18n="currency.showBoth">نمایش هر دو ارز</label></div>
+      <div class="switch"><input type="checkbox" id="curConvertPreset" checked><label for="curConvertPreset" data-i18n="currency.convertPreset">تبدیل قیمت/جوایز پریست به ارز پایه</label></div>
+    </div>
+
+    <div class="sep"></div>
+    <h3>① <span data-i18n="currency.base">ارز پایه (Base)</span></h3>
+    <div class="grid-4">
+      <div><label>Code</label><select id="baseCode"></select></div>
+      <div><label>Symbol</label><input id="baseSymbol" placeholder="$"></div>
+      <div><label>Minor unit</label><input id="baseMinor" type="number" min="1" value="100"></div>
+      <div class="center"><span class="chip" id="basePreview"></span></div>
+    </div>
+
+    <div class="sep"></div>
+    <h3>② <span data-i18n="currency.second">ارز ثانویه</span></h3>
+    <div class="grid-4">
+      <div><label>Code</label><select id="secCode"></select></div>
+      <div><label>Symbol</label><input id="secSymbol" placeholder="تومان"></div>
+      <div><label>Minor unit</label><input id="secMinor" type="number" min="1" value="1"></div>
+      <div><label>Rate</label><div class="between" style="gap:6px"><span>1</span><span id="rateBaseCode">USD</span>=<input id="secRate" type="number" min="0" step="0.0001" value="115000" style="width:140px"><span id="rateSecCode">TOMAN</span></div></div>
+    </div>
+
+    <div class="sep"></div>
+    <h3>③ <span data-i18n="currency.presetFx">تبدیل پریست → ارز پایه</span></h3>
+    <p class="muted small" id="presetFxNote">Preset currency: <b id="presetCurCode">USD</b>. اگر فعال باشد، از نرخ زیر برای تبدیل استفاده می‌شود.</p>
+    <div class="between" style="gap:6px"><span>1</span><span id="presetCurLabel">USD</span>=<input id="fxPresetToBase" type="number" min="0" step="0.0001" value="1" style="width:140px"><span id="baseCurLabel">USD</span></div>
+
+    <div class="sep"></div>
+    <div class="between" style="justify-content:flex-end;gap:8px">
+      <button id="curSave" class="btn primary">💾 Save</button>
+      <button id="curClose" class="btn">✖️ Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastWrap" class="toast-wrap" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+(function(){
+/* ===================== SAFETY & HELPERS ===================== */
+window.addEventListener('error', function(e){ showToast('JS Error: '+(e && e.message ? e.message : 'unknown')); });
+window.addEventListener('unhandledrejection', function(e){ showToast('Promise error'); });
+
+function $(s){ return document.querySelector(s); }
+function $all(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
+function on(id, ev, fn){ var el=document.getElementById(id); if(el) el.addEventListener(ev, fn); return el; }
+function create(tag, attrs, html){ var el=document.createElement(tag); if(attrs){ for(var k in attrs){ el.setAttribute(k, attrs[k]); } } if(html!=null) el.innerHTML=html; return el; }
+function showToast(msg){ var d=create('div',{class:'toast'}, msg); var w=$('#toastWrap'); if(w){ w.appendChild(d); setTimeout(function(){ d.style.opacity='.95'; }, 20); setTimeout(function(){ d.style.opacity='0'; d.style.transform='translateY(6px)'; }, 2200); setTimeout(function(){ d.remove(); }, 2600); } }
+function cssVar(name){ return getComputedStyle(document.body).getPropertyValue(name); }
+function smoothScrollTo(el){ try{ el && el.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){ if(el) el.scrollIntoView(); } }
+
+/* ===================== i18n ===================== */
+var I18N={fa:{
+  'app.title':'شبیه‌ساز لاتاری — Pro','toolbar.theme':'تم','toolbar.dirlang':'RTL/LTR + زبان','toolbar.mode':'حالت: ساده','toolbar.presetPicker':'انتخاب سریع',
+  'simple.title':'حالت ساده','simple.miniLog':'لاگ خلاصه (آخرین N)','simple.help':'راهنمای سریع',
+  'adv.title':'حالت حرفه‌ای','tabs.settings':'تنظیمات','tabs.daily':'روزانه','tabs.filters':'فیلترها','tabs.log':'لاگ','tabs.sessions':'جلسات','tabs.help':'راهنما',
+  'labels.preset':'پریست','labels.ticketPrice':'قیمت بلیط','labels.maxNumber':'بازهٔ اصلی (۱ تا N)','labels.k':'K (تعداد اعداد)','labels.bonusCount':'تعداد بونس','labels.bonusPool':'استخر بونس (۱ تا M)',
+  'target.title':'تارگت','target.mode':'حالت','target.random':'رندوم','target.manual':'دستی','target.generate':'تولید تارگت تصادفی',
+  'daily.ticketsPerDay':'بلیط در روز','daily.totalTickets':'کل بلیط‌ها','daily.changeDaily':'تغییر تارگت روزانه',
+  'range.title':'فیلتر بازه‌ای حرفه‌ای','range.mode':'حالت','range.off':'خاموش','range.all':'همه داخل بازه','range.any':'حداقل یک داخل بازه',
+  'prizes.title':'جوایز','prizes.reset':'بازنشانی به پریست',
+  'perf.stop':'توقف در جک‌پات','log.mode':'سطح لاگ','log.onlyWins':'فقط بردها','btn.start':'شروع','btn.pause':'توقف/ادامه','btn.reset':'ریست','btn.export':'خروجی CSV','btn.save':'ذخیرهٔ جلسه','btn.load':'بارگذاری','btn.clear':'پاک‌سازی',
+  'chart.pl':'سود/زیان تجمعی','desc.simple':'در بالا تنظیمات ضروری؛ اینجا لاگ خلاصه.','desc.miniLog':'آخرین رکوردها برای بررسی سریع.',
+  'desc.adv':'داشبورد ثابت بالا؛ ابزارهای حرفه‌ای اینجاست.','desc.settings':'ساختار بازی و جوایز.','desc.daily':'روزانه و شمارنده‌ها.',
+  'desc.filters':'فقط تولید را محدود می‌کند؛ قرعه‌کشی بی‌طرف می‌ماند.','desc.log':'سورت/فیلتر/جستجو/Expand + CSV.','desc.sessions':'نشست‌ها را ذخیره و مقایسه کنید.',
+  'rc.title':'کنسول اجرا (ثابت)','rc.desc':'شروع/توقف، KPI و نمودارها همیشه در دسترس‌اند.',
+  'currency.btn':'ارز','currency.title':'تنظیمات ارز و تبدیل','currency.desc':'تک/دو ارزی با نرخ تبدیل دستی.',
+  'currency.mode':'حالت نمایش','currency.showBoth':'نمایش هر دو ارز','currency.convertPreset':'تبدیل قیمت/جوایز پریست به ارز پایه','currency.base':'ارز پایه','currency.second':'ارز ثانویه','currency.presetFx':'پریست → ارز پایه'
+},en:{
+  'app.title':'Lottery Simulator — Pro','toolbar.theme':'Theme','toolbar.dirlang':'RTL/LTR + Lang','toolbar.mode':'Mode: Simple','toolbar.presetPicker':'Quick Pick',
+  'simple.title':'Simple Mode','simple.miniLog':'Mini Log (last N)','simple.help':'Quick note',
+  'adv.title':'Advanced Mode','tabs.settings':'Settings','tabs.daily':'Daily','tabs.filters':'Filters','tabs.log':'Log','tabs.sessions':'Sessions','tabs.help':'Help',
+  'labels.preset':'Preset','labels.ticketPrice':'Ticket price','labels.maxNumber':'Main pool (1..N)','labels.k':'K (per ticket)','labels.bonusCount':'Bonus count','labels.bonusPool':'Bonus pool (1..M)',
+  'target.title':'Target','target.mode':'Mode','target.random':'Random','target.manual':'Manual','target.generate':'Generate random target',
+  'daily.ticketsPerDay':'Tickets per day','daily.totalTickets':'Total tickets','daily.changeDaily':'Change target daily',
+  'range.title':'Pro Range Filter','range.mode':'Mode','range.off':'Off','range.all':'All-in-range','range.any':'At-least-one',
+  'prizes.title':'Prizes','prizes.reset':'Reset to preset',
+  'perf.stop':'Stop on jackpot','log.mode':'Log level','log.onlyWins':'Wins only','btn.start':'Start','btn.pause':'Pause/Resume','btn.reset':'Reset','btn.export':'Export CSV','btn.save':'Save session','btn.load':'Load','btn.clear':'Clear',
+  'chart.pl':'Cumulative P/L','desc.simple':'Essentials above; mini log here.','desc.miniLog':'Recent records for quick inspection.',
+  'desc.adv':'Fixed dashboard above; advanced tools here.','desc.settings':'Game structure & prizes.','desc.daily':'Daily counters.',
+  'desc.filters':'Affects generation only.','desc.log':'Sort/Filter/Search/Expand + CSV.','desc.sessions':'Save & compare sessions.',
+  'rc.title':'Run Console (sticky)','rc.desc':'Start/stop, KPIs & charts always accessible.',
+  'currency.btn':'Currency','currency.title':'Currency & FX Settings','currency.desc':'Single/Dual with manual FX.',
+  'currency.mode':'Display mode','currency.showBoth':'Show both','currency.convertPreset':'Convert preset to base','currency.base':'Base currency','currency.second':'Secondary','currency.presetFx':'Preset → Base'
+}};
+function applyI18n(){
+  var d=I18N[state.lang]||I18N.fa;
+  $all('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; });
+  document.documentElement.lang=(state.lang==='fa'?'fa':'en');
+  document.documentElement.dir=(state.lang==='fa'?'rtl':'ltr');
+  var s=$('#searchLog'); if(s) s.setAttribute('placeholder', state.lang==='fa'?'جستجو…':'Search…');
+  var mt=$('#modeToggle'); if(mt){ mt.querySelector('span').textContent=d['toolbar.mode']; }
+}
+
+/* ===================== Currency & Presets ===================== */
+var CURS={USD:{symbol:'$', minor:100}, EUR:{symbol:'€', minor:100}, GBP:{symbol:'£', minor:100}, CAD:{symbol:'$', minor:100}, PLN:{symbol:'zł', minor:100}, AED:{symbol:'د.إ', minor:100}, TRY:{symbol:'₺', minor:100}, IRR:{symbol:'﷼', minor:10}, TOMAN:{symbol:'تومان', minor:1}, CUSTOM:{symbol:'¤', minor:100}};
+var PRESETS={
+  "Mega Millions (US, 2025)":{name:"Mega Millions (US, 2025)",country:"US",currencyCode:"USD",currencySymbol:"$",minorUnit:100,ticketPriceMinor:500,n:70,k:5,bonusCount:1,bonusPool:24,bonusFromMainPool:false,prizeEngine:"fixed",jackpotBaseMinor:50000000,multiplier:{enabled:true,values:[2,3,4,5,10]},basePrizeMap:{"5+1":"JACKPOT","5":100000000,"4+1":1000000,"4":50000,"3+1":20000,"3":1000,"2+1":1000,"1+1":700,"0+1":500}},
+  "Powerball (US)":{name:"Powerball (US)",country:"US",currencyCode:"USD",currencySymbol:"$",minorUnit:100,ticketPriceMinor:200,n:69,k:5,bonusCount:1,bonusPool:26,bonusFromMainPool:false,prizeEngine:"fixed",jackpotBaseMinor:50000000,prizeMap:{"5+1":"JACKPOT","5":100000000,"4+1":5000000,"4":10000,"3+1":10000,"3":700,"2+1":700,"1+1":400,"0+1":400}},
+  "EuroMillions (UK)":{name:"EuroMillions (UK)",country:"UK",currencyCode:"GBP",currencySymbol:"£",minorUnit:100,ticketPriceMinor:250,n:50,k:5,bonusCount:2,bonusPool:12,bonusFromMainPool:false,prizeEngine:"pariMutuel"},
+  "EuroJackpot (EU)":{name:"EuroJackpot (EU)",country:"EU",currencyCode:"EUR",currencySymbol:"€",minorUnit:100,ticketPriceMinor:200,n:50,k:5,bonusCount:2,bonusPool:12,bonusFromMainPool:false,prizeEngine:"pariMutuel"},
+  "UK Lotto":{name:"UK Lotto",country:"UK",currencyCode:"GBP",currencySymbol:"£",minorUnit:100,ticketPriceMinor:200,n:59,k:6,bonusCount:1,bonusPool:59,bonusFromMainPool:true,prizeEngine:"fixed+jackpot",prizeMap:{"6":"JACKPOT","5+B":100000000,"5":175000,"4":14000,"3":3000,"2":"FREE_PLAY"},freePlayCreditMinor:200,jackpotBaseMinor:5000000},
+  "Texas Cash Five":{name:"Cash Five (TX)",country:"US-TX",currencyCode:"USD",currencySymbol:"$",minorUnit:100,ticketPriceMinor:100,n:35,k:5,bonusCount:0,bonusPool:0,bonusFromMainPool:false,prizeEngine:"fixed",prizeMap:{"5":2500000,"4":35000,"3":1500,"2":"FREE_PLAY"},freePlayCreditMinor:100},
+  "Mini Lotto (PL)":{name:"Mini Lotto (PL)",country:"PL",currencyCode:"PLN",currencySymbol:"zł",minorUnit:100,ticketPriceMinor:200,n:42,k:5,bonusCount:0,bonusPool:0,bonusFromMainPool:false,prizeEngine:"pariMutuel"},
+  "Lotto 6/49 (CA, Classic)":{name:"Lotto 6/49 (Classic)",country:"CA",currencyCode:"CAD",currencySymbol:"$",minorUnit:100,ticketPriceMinor:300,n:49,k:6,bonusCount:1,bonusPool:49,bonusFromMainPool:true,prizeEngine:"pariMutuel+fixedJackpot",classicJackpotMinor:500000000},
+  "Custom":{name:"Custom",currencyCode:"USD",currencySymbol:"$",minorUnit:100,ticketPriceMinor:200,n:49,k:6,bonusCount:0,bonusPool:0,bonusFromMainPool:false,prizeEngine:"fixed",prizeMap:{}}
+};
+
+/* ===================== State ===================== */
+var state={
+  lang:'fa', locale:'fa-IR', mode:'simple',
+  presetName:'Mega Millions (US, 2025)',
+  n:70,k:5,bonusCount:1,bonusPool:24,bonusFromMainPool:false,
+  ticketPrice:500,
+  prizeEngine:'fixed', prizeMap:{}, basePrizeMap:{}, multiplier:{enabled:true,values:[2,3,4,5,10]}, powerPlay:{enabled:false},
+  jackpotBaseMinor:50000000, freePlayCreditMinor:0,
+
+  targetMode:'random', targetMain:[], targetBonus:[],
+  ticketsPerDay:500, totalTickets:200000, changeTargetDaily:true,
+  chunkSize:1000, speedMs:16, stopOnJackpot:false, logMode:'all',
+
+  currency:{ mode:'single', base:{code:'USD',symbol:'$',minorUnit:100}, second:{enabled:false,code:'TOMAN',symbol:'تومان',minorUnit:1,ratePerBase:115000,showBoth:true}, convertPreset:true, fxPresetToBase:1 },
+
+  rangeMode:'off', multiRanges:[], includeList:[], excludeList:[], maxConsecutive:5, evenMin:null, evenMax:null, sumMin:null, sumMax:null,
+
+  sessionId:null, isRunning:false, isPaused:false,
+  stats:{tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}},
+  rows:[], sortSpec:[{col:'ticketIndex',dir:'desc'}],
+  winsOnly:false, searchTerm:'', prizeMin:null, prizeMax:null, matchAtLeast:null,
+  expanded:new Set(), virtualization:true,
+  dailyPL:[], plPoints:[], roiPoints:[],
+  lastChartDraw:0, chartThrottleMs:250, chartMaxPoints:2000
+};
+function fmt(n){ return new Intl.NumberFormat(state.locale).format(n|0); }
+function moneyBase(minor){ var m=state.currency.base.minorUnit||100; var sym=state.currency.base.symbol||'$'; return sym + new Intl.NumberFormat(state.locale).format((minor|0)/m); }
+function toSecondMinor(minorBase){ if(state.currency.mode!=='dual' || !state.currency.second.enabled) return 0; var baseM=state.currency.base.minorUnit||100, secM=state.currency.second.minorUnit||1, rate=+state.currency.second.ratePerBase||1; var baseMajor=(minorBase|0)/baseM; return Math.round(baseMajor*rate*secM); }
+function moneyBoth(minor){ var a=moneyBase(minor); if(state.currency.mode==='dual' && state.currency.second.enabled && state.currency.second.showBoth){ var secMinor=toSecondMinor(minor); var sec=state.currency.second; var b=sec.symbol + new Intl.NumberFormat(state.locale).format(secMinor/(sec.minorUnit||1)); return a+' ('+b+')'; } return a; }
+
+/* ===================== Preset & Currency ===================== */
+function loadPresetOptions(){ var sel=$('#presetTop'); if(sel) sel.innerHTML=Object.keys(PRESETS).map(function(k){return '<option value="'+k+'">'+k+'</option>'}).join(''); }
+function renderPresetChip(){ var info=state.presetName+' • '+state.k+'/'+state.n+(state.bonusCount?(' + '+state.bonusCount+'★/'+state.bonusPool):''); var pc=$('#presetInfoChip'); if(pc) pc.textContent=info; }
+function convertMapToBase(map, presetMinor){ var out={}; var fx=+state.currency.fxPresetToBase||1; var baseMinor=state.currency.base.minorUnit||100; for(var k in (map||{})){ var v=map[k]; if(v==='JACKPOT'||v==='FREE_PLAY'){ out[k]=v; } else { var major=(v|0)/(presetMinor||100); out[k]=Math.round(major*fx*baseMinor); } } return out; }
+function applyPreset(name){
+  var p=JSON.parse(JSON.stringify(PRESETS[name]||PRESETS['Custom']));
+  state.presetName=p.name; state.n=p.n; state.k=p.k; state.bonusCount=p.bonusCount; state.bonusPool=p.bonusPool; state.bonusFromMainPool=!!p.bonusFromMainPool;
+  state.prizeEngine=p.prizeEngine; state.multiplier=p.multiplier||{enabled:false,values:[]}; state.powerPlay=p.powerPlay||{enabled:false};
+  state.jackpotBaseMinor=p.jackpotBaseMinor||p.classicJackpotMinor||50000000;
+
+  if(state.currency.convertPreset){
+    var pm=p.minorUnit||100, fx=+state.currency.fxPresetToBase||1, bm=state.currency.base.minorUnit||100;
+    var priceMajor=(p.ticketPriceMinor|0)/pm; state.ticketPrice=Math.round(priceMajor*fx*bm);
+    state.prizeMap=convertMapToBase(p.prizeMap, pm); state.basePrizeMap=convertMapToBase(p.basePrizeMap, pm);
+  }else{
+    state.currency.base.code=p.currencyCode||'USD'; state.currency.base.symbol=p.currencySymbol||'$'; state.currency.base.minorUnit=p.minorUnit||100;
+    state.ticketPrice=p.ticketPriceMinor|0; state.prizeMap=p.prizeMap||{}; state.basePrizeMap=p.basePrizeMap||{};
+  }
+  if($('#presetTop')) $('#presetTop').value=name;
+  if($('#advN')) $('#advN').value=state.n; if($('#advK')) $('#advK').value=state.k; if($('#advBCount')) $('#advBCount').value=state.bonusCount; if($('#advBPool')) $('#advBPool').value=state.bonusPool;
+  if($('#gcTicketPrice')) $('#gcTicketPrice').value=state.ticketPrice;
+  if($('#usePowerPlay')) $('#usePowerPlay').checked=false; state.usePowerPlay=false;
+
+  renderPrizeTable(); renderTargetsUI(); renderPresetChip(); updatePriceDisplay(); buildPresetCards(); saveSettings();
+}
+function renderCurrencyChip(){ var base=state.currency.base.code; if(state.currency.mode==='dual' && state.currency.second.enabled){ $('#currencyChip').textContent=base+' → '+state.currency.second.code+' @ '+state.currency.second.ratePerBase; } else { $('#currencyChip').textContent=base; } }
+function updatePriceDisplay(){ var p=state.ticketPrice|0; var v=$('#gcTicketPrice'); if(v) v.value=p; var d=$('#priceDisplay'); if(d) d.textContent=moneyBoth(p)+' / ticket'; }
+
+/* ===================== Prize Table ===================== */
+function buildPrizeKeys(k,b){ var keys=[], m,i; for(m=2;m<=k;m++){ keys.push(String(m)); for(i=1;i<=b;i++) keys.push(m+'+'+i); } if(b>0) keys.push(k+'+'+b); else keys.push(String(k)); var set=Array.from(new Set(keys)); set.sort(function(a,b){ var am=+a.split('+')[0], ab=+(a.split('+')[1]||0), bm=+b.split('+')[0], bb=+(b.split('+')[1]||0); if(am!==bm) return bm-am; return bb-ab; }); return set; }
+function renderPrizeTable(){
+  var pm=(state.multiplier.enabled? state.basePrizeMap: state.prizeMap) || {};
+  var keys=buildPrizeKeys(state.k,state.bonusCount);
+  var rows=keys.map(function(k){
+    var v= pm[k]!=null? pm[k]:0; var isJack=(k===String(state.k) && state.bonusCount===0)||(k===state.k+'+'+state.bonusCount && state.bonusCount>0);
+    var disp=(v==='JACKPOT')?'JACKPOT':(v==='FREE_PLAY'?'FREE_PLAY':(v|0));
+    return '<tr><td><b>'+k+'</b> '+(isJack?'<span class="chip">Jackpot</span>':'')+'</td><td><input class="prize-input" data-key="'+k+'" value="'+disp+'"></td></tr>';
+  }).join('');
+  var wrap=$('#prizeTableWrap'); if(!wrap) return;
+  wrap.innerHTML='<table><thead><tr><th>Match</th><th>'+(state.lang==='fa'?'جایزه (minor یا کلمه)':'Prize (minor or word)')+'</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  $all('.prize-input').forEach(function(inp){
+    inp.addEventListener('change', function(e){
+      var key=e.target.getAttribute('data-key'); var val=(e.target.value||'').trim().toUpperCase(); var target=(state.multiplier.enabled? state.basePrizeMap: state.prizeMap);
+      if(val==='JACKPOT'||val==='FREE_PLAY') target[key]=val; else target[key]=parseInt(val||'0',10)|0; saveSettings();
+    });
+  });
+}
+
+/* ===================== Targets ===================== */
+function renderTargetsUI(){
+  var m=$('#advTargetMain'), b=$('#advTargetBonus'); if(!m||!b) return;
+  function build(wrap,count,label,arr){
+    wrap.innerHTML='<div class="muted">'+label+'</div>';
+    for(var i=0;i<count;i++){
+      (function(ix){
+        var inp=create('input',{type:'number',min:'1',style:'width:64px;text-align:center'}); inp.value=arr[ix]||'';
+        inp.addEventListener('change', function(){ arr[ix]=parseInt(inp.value||'0',10)|0; saveSettings(); });
+        wrap.appendChild(inp);
+      })(i);
+    }
+  }
+  build(m,state.k, state.lang==='fa'?'اعداد اصلی':'Main',state.targetMain);
+  if(state.bonusCount>0) build(b,state.bonusCount,'Bonus',state.targetBonus); else b.innerHTML='';
+}
+function randomizeTarget(){
+  function sample(n,k){ var a=Array.from({length:n},function(_,i){return i+1}); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a.slice(0,k).sort(function(x,y){return x-y}); }
+  state.targetMain=sample(state.n,state.k); state.targetBonus=state.bonusCount? sample(state.bonusPool,state.bonusCount):[]; renderTargetsUI(); saveSettings();
+}
+
+/* ===================== Persist ===================== */
+var LS_SETTINGS='lsim.settings.v6', LS_SESSIONS='lsim.sessions.v1';
+function saveSettings(){ try{ var s=JSON.parse(JSON.stringify(state)); delete s.rows; delete s.expanded; delete s.dailyPL; delete s.plPoints; delete s.roiPoints; delete s.stats; delete s.sessionId; delete s.isRunning; delete s.isPaused; delete s.lastChartDraw; localStorage.setItem(LS_SETTINGS, JSON.stringify(s)); }catch(e){} }
+function loadSettings(){ try{ var raw=localStorage.getItem(LS_SETTINGS); if(!raw) return; var s=JSON.parse(raw); for(var k in s) state[k]=s[k]; }catch(e){} }
+
+/* ===================== Worker ===================== */
+var workerRef=null;
+function createWorker(){
+  var code=`let running=false,paused=false,cfg=null;
+function rBelow(n){const max=0x100000000,lim=Math.floor(max/n)*n;const buf=new Uint32Array(1);let r;do{crypto.getRandomValues(buf);r=buf[0]}while(r>=lim);return r%n}
+function r1n(n){return rBelow(n)+1}
+function sampleUnique(n,k){const map=new Map(),res=new Array(k);for(let i=0;i<k;i++){const r=r1n(n-i);const x=map.get(r)||r;const y=map.get(n-i)||(n-i);map.set(r,y);res[i]=x}res.sort((a,b)=>a-b);return res}
+function withinRanges(nums,ranges,mode){if(!ranges||!ranges.length||mode==='off')return true;if(mode==='all')return nums.every(x=>ranges.some(([a,b])=>x>=a&&x<=b));if(mode==='any')return nums.some(x=>ranges.some(([a,b])=>x>=a&&x<=b));return true}
+function maxCons(arr){let m=1,c=1;for(let i=1;i<arr.length;i++){if(arr[i]===arr[i-1]+1)c++;else c=1;m=Math.max(m,c)}return m}
+function evenCount(a){let c=0;for(const x of a) if((x&1)===0)c++;return c}
+function sum(a){let s=0;for(const x of a)s+=x;return s}
+function includeExcludeOk(nums,inc,exc){if(inc&&inc.length){for(const v of inc) if(!nums.includes(v))return false}if(exc&&exc.length){for(const v of exc) if(nums.includes(v))return false}return true}
+function passes(main,f){ if(!withinRanges(main,f.multiRanges||[],f.rangeMode||'off'))return false; if(f.maxConsecutive!=null && maxCons(main)>f.maxConsecutive)return false; if(f.evenMin!=null||f.evenMax!=null){const ec=evenCount(main); if(f.evenMin!=null && ec<f.evenMin) return false; if(f.evenMax!=null && ec>f.evenMax) return false;} if(f.sumMin!=null||f.sumMax!=null){const s=sum(main); if(f.sumMin!=null && s<f.sumMin) return false; if(f.sumMax!=null && s>f.sumMax) return false;} if(!includeExcludeOk(main,f.includeList||[],f.excludeList||[])) return false; return true }
+function calcPrizeFixed(key, pm, basePM, jackpot, useMult, multVals, matchMain, isNonJack){ let raw=(useMult&&basePM)? basePM[key] : (pm? pm[key]:null); if(raw==null && useMult && pm) raw=pm[key]; if(raw==='JACKPOT') return jackpot|0; if(raw==='FREE_PLAY') return -1; let val=raw|0; if(useMult && isNonJack){ const mult=multVals[rBelow(multVals.length)]|0||1; val*=mult; } return val|0 }
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+self.onmessage=async e=>{const d=e.data||{}; if(d.type==='start'){cfg=d.config;running=true;paused=false; await run();} else if(d.type==='pause'){paused=true;} else if(d.type==='resume'){paused=false;} else if(d.type==='stop'){running=false;}};
+async function run(){
+  const stats={tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}};
+  let day=1,todayT=0,todayW=0,deltaDays=[],curS=0,curP=0;
+  let tMain = (cfg.targetMode==='manual'&&(cfg.targetMain||[]).length===cfg.k)? cfg.targetMain.slice().sort((a,b)=>a-b):null;
+  let tBonus= (cfg.targetMode==='manual'&&(cfg.targetBonus||[]).length===cfg.bonusCount)? cfg.targetBonus.slice().sort((a,b)=>a-b):[];
+  if(cfg.targetMode==='random'||!tMain){ tMain=sampleUnique(cfg.n,cfg.k); tBonus=cfg.bonusCount? sampleUnique(cfg.bonusPool,cfg.bonusCount):[]; }
+  let tSet=new Set(tMain), bSet=new Set(tBonus);
+  const total=cfg.totalTickets|0, chunk=Math.max(1,cfg.chunkSize|0), price=cfg.ticketPrice|0; let last=performance.now();
+  for(let done=0; done<total && running;){
+    if(paused){ await sleep(50); last=performance.now(); continue; }
+    const step=Math.min(chunk,total-done); let rows=(cfg.logMode==='none')?null:[];
+    let closed=[];
+    for(let i=0;i<step && running;i++){
+      if(todayT >= (cfg.ticketsPerDay|0)){ stats.days++; day++; todayT=0; todayW=0; deltaDays.push({day:day-1,spent:curS,paid:curP}); closed.push({day:day-1,spent:curS,paid:curP}); curS=0; curP=0;
+        if(cfg.changeTargetDaily && cfg.targetMode==='random'){ tMain=sampleUnique(cfg.n,cfg.k); tBonus=cfg.bonusCount? sampleUnique(cfg.bonusPool,cfg.bonusCount):[]; tSet=new Set(tMain); bSet=new Set(tBonus); } }
+      let ticket=null, tries=0;
+      while(true){ tries++; const m=sampleUnique(cfg.n,cfg.k); if(passes(m,cfg.range)){ const b=cfg.bonusCount? sampleUnique(cfg.bonusFromMainPool?cfg.n:cfg.bonusPool, cfg.bonusCount):[]; if(cfg.bonusFromMainPool && b.some(x=>m.includes(x))) continue; ticket={main:m,bonus:b}; break; } if(tries>4000){ const b=cfg.bonusCount? sampleUnique(cfg.bonusFromMainPool?cfg.n:cfg.bonusPool, cfg.bonusCount):[]; ticket={main:sampleUnique(cfg.n,cfg.k),bonus:b}; break; } }
+      const m=ticket.main.filter(x=>tSet.has(x)).length;
+      const b=cfg.bonusCount? ticket.bonus.filter(x=>bSet.has(x)).length:0;
+      const isJP = cfg.bonusCount? (m===cfg.k && b===cfg.bonusCount) : (m===cfg.k);
+      const key=(b>0)? (m+"+"+b): String(m);
+      let prize=0;
+      if(cfg.prizeEngine.startsWith('fixed')){
+        const raw = (cfg.multiplier.enabled? (cfg.basePrizeMap||{})[key] : ((cfg.prizeMap||{})[key] ?? (cfg.prizeMap||{})[String(m)]));
+        const val=calcPrizeFixed(key, cfg.prizeMap, cfg.basePrizeMap||{}, cfg.jackpotBaseMinor|0, cfg.multiplier.enabled, (cfg.multiplier.values||[]), m, !(raw==='JACKPOT'));
+        prize = (val===-1)? (cfg.ticketPrice|0) : (val|0);
+      } else {
+        const raw=(cfg.prizeMap && ((cfg.prizeMap[key]!=null)? cfg.prizeMap[key]: cfg.prizeMap[String(m)]));
+        if(raw==='JACKPOT') prize=cfg.jackpotBaseMinor|0; else if(raw==='FREE_PLAY') prize=(cfg.ticketPrice|0); else prize=(raw|0);
+      }
+      stats.tickets++; todayT++; stats.spent+=price; curS+=price; stats.paid+=prize; curP+=prize; stats.net=stats.paid-stats.spent;
+      const kc=(b>0)? (m+"+"+b): String(m); stats.matchCounts[kc]=(stats.matchCounts[kc]|0)+1;
+      if(isJP){ stats.jackpots++; todayW++; if(cfg.stopOnJackpot){ rows && rows.push(buildRow(cfg.sessionId,stats.tickets,day,ticket,m,b,prize,price,prize-price,cfg.presetName)); self.postMessage({type:'chunk',stats,rows,day,todayTickets:todayT,todayWins:todayW,deltaDays:closed}); running=false; break; } }
+      if(prize>0) todayW++;
+      if(rows && (cfg.logMode==='all' || (cfg.logMode==='wins' && prize>0))) rows.push(buildRow(cfg.sessionId,stats.tickets,day,ticket,m,b,prize,price,prize-price,cfg.presetName));
+      done++;
+      if(performance.now()-last>16 && cfg.delayMs>0){ await sleep(cfg.delayMs); last=performance.now(); }
+    }
+    self.postMessage({type:'chunk',stats,rows,day,todayTickets:todayT,todayWins:todayW,deltaDays:closed});
+  }
+  self.postMessage({type:'done',stats,deltaDays});
+}
+function buildRow(sessionId,idx,day,t,m,b,prize,spent,net,preset){return {timestamp:new Date().toISOString(),sessionId,ticketIndex:idx,day,numbersMain:t.main,numbersBonus:t.bonus,matchedMain:m,matchedBonus:b,prizeAmount:prize|0,spentAmount:spent|0,netAmount:net|0,presetName:preset}}
+`;
+  var blob=new Blob([code],{type:'application/javascript'}); var url=URL.createObjectURL(blob); var w=new Worker(url); w._url=url; return w;
+}
+function destroyWorker(){ if(workerRef){ workerRef.terminate(); URL.revokeObjectURL(workerRef._url); workerRef=null; } }
+
+/* ===================== Charts ===================== */
+function drawLine(canvas,pts,yLock,updateMap){
+  var ctx=canvas.getContext('2d'), w=canvas.width, h=canvas.height;
+  var pad={l:48,r:10,t:10,b:22}, iw=w-pad.l-pad.r, ih=h-pad.t-pad.b; ctx.clearRect(0,0,w,h);
+  // grid
+  ctx.strokeStyle=cssVar('--border'); ctx.beginPath(); for(var i=0;i<=4;i++){ var y=pad.t+ih*(i/4); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+iw,y); } ctx.stroke();
+
+  if(pts.length<2) return;
+  var xs=pts.map(function(p){return p.x}), ys=pts.map(function(p){return p.y});
+  var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs); if(minX===maxX){minX=0;maxX=1;}
+  var minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys); if(yLock){minY=Math.min(minY,yLock.min); maxY=Math.max(maxY,yLock.max);}
+  var sx=function(x){ return pad.l+iw*((x-minX)/(maxX-minX||1)); }, sy=function(y){ return pad.t+ih*(1-((y-minY)/(maxY-minY||1))); };
+
+  // zero line
+  var y0=sy(0); ctx.strokeStyle='rgba(239,68,68,.35)'; ctx.beginPath(); ctx.moveTo(pad.l,y0); ctx.lineTo(pad.l+iw,y0); ctx.stroke();
+
+  // axes labels
+  ctx.fillStyle=cssVar('--muted'); ctx.font="12px ui-sans-serif"; ctx.textAlign="right"; ctx.textBaseline="middle";
+  ctx.fillText(String(Math.round(maxY)), pad.l-6, pad.t); ctx.fillText(String(Math.round(minY)), pad.l-6, pad.t+ih);
+
+  // line
+  ctx.beginPath(); ctx.lineWidth=2; ctx.strokeStyle=cssVar('--accent-2');
+  var N=pts.length, step=Math.max(1, Math.floor(N/2000));
+  for(var j=0;j<N;j+=step){ var X=sx(pts[j].x), Y=sy(pts[j].y); if(j===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y); if(updateMap){ pts[j]._sx=X; pts[j]._sy=Y; } }
+  ctx.stroke();
+
+  // last point marker
+  var lp=pts[pts.length-1]; var LX=sx(lp.x), LY=sy(lp.y); if(updateMap){ lp._sx=LX; lp._sy=LY; }
+  ctx.fillStyle=cssVar('--accent'); ctx.beginPath(); ctx.arc(LX,LY,3,0,6.283); ctx.fill();
+  ctx.fillStyle=cssVar('--muted'); ctx.textAlign='left'; ctx.fillText(String(Math.round(lp.y)), LX+6, LY-8);
+}
+function drawBars(canvas,vals){
+  var ctx=canvas.getContext('2d'), w=canvas.width, h=canvas.height;
+  var pad={l:48,r:10,t:10,b:22}, iw=w-pad.l-pad.r, ih=h-pad.t-pad.b; ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle=cssVar('--border'); ctx.beginPath(); for(var i=0;i<=4;i++){ var y=pad.t+ih*(i/4); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+iw,y); } ctx.stroke();
+  if(!vals.length) return; var minY=Math.min(0, Math.min.apply(null, vals)), maxY=Math.max.apply(null, vals.concat([1])); var sy=function(y){ return pad.t+ih*(1-((y-minY)/(maxY-minY||1))); };
+  var bw=iw/Math.max(vals.length,1);
+  ctx.fillStyle=cssVar('--accent');
+  var st=Math.max(1,Math.floor(vals.length/200));
+  for(var i2=0;i2<vals.length;i2+=st){ var v=vals[i2]; var x=pad.l+i2*bw+2, y=sy(Math.max(0,v)), y0=sy(0), hh=Math.abs(y0-y); ctx.fillRect(x, Math.min(y,y0), Math.max(1,bw-4), hh); }
+}
+function drawDonut(canvas,kv){
+  var ctx=canvas.getContext('2d'), w=canvas.width, h=canvas.height; ctx.clearRect(0,0,w,h);
+  var keys=Object.keys(kv), total=0; for(var i=0;i<keys.length;i++) total+=(kv[keys[i]]|0); if(!total) return;
+  var cx=w/2, cy=h/2, R=Math.min(w,h)*0.38, r=R*0.5, a0=-Math.PI/2;
+  for(var i2=0;i2<keys.length;i2++){ var k=keys[i2], a1=a0+2*Math.PI*((kv[k]|0)/total); ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a1,false); ctx.closePath(); ctx.fillStyle=(i2%2?cssVar('--accent'):cssVar('--accent-2')); ctx.fill(); a0=a1; }
+  ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.fill(); ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle=cssVar('--muted'); ctx.font='12px ui-sans-serif'; ctx.textAlign='left'; var y=10; for(var j=0;j<Math.min(keys.length,10);j++){ var k2=keys[j]; ctx.fillText(k2+': '+(kv[k2]|0),10,y); y+=16; }
+}
+function drawAllCharts(force){
+  var now=performance.now(); if(!force && now-state.lastChartDraw<state.chartThrottleMs) return;
+  drawLine($('#plChart'), state.plPoints, null, true);   // updateMap=true → برای Tooltip
+  drawLine($('#roiChart'), state.roiPoints, {min:-100,max:200}, false);
+  var daily=state.dailyPL.map(function(d){return (d.paid|0)-(d.spent|0)}); drawBars($('#dailyChart'), daily);
+  var dist={}, mc=state.stats.matchCounts||{}; for(var k in mc) dist[k]=mc[k]; drawDonut($('#distChart'), dist);
+  state.lastChartDraw=now;
+}
+function bindPLTooltip(){
+  var canvas=$('#plChart'), tip=$('#plTip'); if(!canvas||!tip) return;
+  canvas.addEventListener('mousemove', function(ev){
+    if(!state.plPoints.length){ tip.classList.add('hide'); return; }
+    var rect=canvas.getBoundingClientRect(); var x=ev.clientX-rect.left, y=ev.clientY-rect.top;
+    var minD=1e9, item=null;
+    for(var i=0;i<state.plPoints.length;i++){ var p=state.plPoints[i]; var sx=p._sx!=null?p._sx:0; var d=Math.abs(sx-x); if(d<minD){minD=d; item=p;} }
+    if(!item){ tip.classList.add('hide'); return; }
+    tip.textContent='t='+fmt(item.x)+' • P/L '+moneyBoth(item.y);
+    tip.style.left=(x)+'px'; tip.style.top=(y-10)+'px';
+    tip.classList.remove('hide');
+  });
+  canvas.addEventListener('mouseleave', function(){ tip.classList.add('hide'); });
+}
+
+/* ===================== Log (Grid + Virtualization) ===================== */
+function moneyCell(minor){ return moneyBoth(minor); }
+function filteredRows(){
+  var arr=state.rows.slice();
+  if(state.winsOnly) arr=arr.filter(function(r){return r.prizeAmount>0});
+  if(state.prizeMin!=null) arr=arr.filter(function(r){return r.prizeAmount>=state.prizeMin});
+  if(state.prizeMax!=null) arr=arr.filter(function(r){return r.prizeAmount<=state.prizeMax});
+  if(state.matchAtLeast!=null) arr=arr.filter(function(r){return r.matchedMain>=state.matchAtLeast});
+  var q=(state.searchTerm||'').trim().toLowerCase();
+  if(q) arr=arr.filter(function(r){
+    return String(r.ticketIndex).includes(q)||r.timestamp.toLowerCase().includes(q)||String(r.day).includes(q)||r.presetName.toLowerCase().includes(q)||r.numbersMain.join(',').includes(q)||(r.numbersBonus||[]).join(',')||String(r.prizeAmount).includes(q);
+  });
+  for(var i=0;i<arr.length;i++) arr[i].__i=i;
+  function cmp(a,b,k,dir){ var va=a[k], vb=b[k]; if(typeof va==='string'&&k!=='timestamp'){va=va.toLowerCase(); vb=vb.toLowerCase();} if(va<vb) return dir==='asc'?-1:1; if(va>vb) return dir==='asc'?1:-1; return a.__i-b.__i; }
+  arr.sort(function(a,b){ for(var i=0;i<state.sortSpec.length;i++){ var s=state.sortSpec[i], c=cmp(a,b,s.col,s.dir); if(c!==0) return c; } return a.__i-b.__i; });
+  return arr;
+}
+function logRowHtml(r, expanded){
+  var isJP=(r.matchedMain===state.k && r.matchedBonus===state.bonusCount);
+  var cls=r.prizeAmount>0?(isJP?'jp':'win'):'';
+  var id=r.sessionId+'#'+r.ticketIndex;
+  return '<div class="log-row '+cls+'" data-id="'+id+'">'+
+    '<div>'+r.ticketIndex+'</div>'+
+    '<div>'+r.timestamp+'</div>'+
+    '<div>'+r.day+'</div>'+
+    '<div>'+r.matchedMain+'</div>'+
+    '<div>'+r.matchedBonus+'</div>'+
+    '<div>'+moneyCell(r.prizeAmount)+'</div>'+
+    '<div>'+moneyCell(r.netAmount)+'</div>'+
+    '<div>'+r.presetName+'</div>'+
+    '<div class="expander" title="Expand">▸</div>'+
+  '</div>'+
+  '<div class="details'+(expanded?' show':'')+'" data-id="'+id+'">'+
+    '<span class="badge">main: '+r.numbersMain.join(',')+'</span>'+
+    ((r.numbersBonus||[]).length?'<span class="badge">bonus: '+(r.numbersBonus||[]).join(',')+'</span>':'')+
+    '<span class="badge">spent: '+moneyCell(r.spentAmount)+'</span>'+
+    '<span class="badge">net: '+moneyCell(r.netAmount)+'</span>'+
+    '<span class="badge">session: '+r.sessionId+'</span>'+
+  '</div>';
+}
+function renderLog(forceTop){
+  var vp=$('#logViewport'), content=$('#logContent'); if(!vp||!content) return;
+  if(forceTop) vp.scrollTop=0;
+  var data=filteredRows(); var rowH=parseInt(getComputedStyle(document.body).getPropertyValue('--row-h'))||36; var total=data.length;
+  var hasExp = state.expanded.size>0; state.virtualization=!hasExp;
+  if(state.virtualization){
+    var vis=Math.ceil(vp.clientHeight/rowH)+6; var start=Math.max(0, Math.floor(vp.scrollTop/rowH)-3); var end=Math.min(total, start+vis);
+    var topPad=start*rowH, bottomPad=(total-end)*rowH;
+    var html='<div class="spacer" style="height:'+topPad+'px"></div>';
+    for(var i=start;i<end;i++){ var r=data[i], expanded=state.expanded.has(r.sessionId+'#'+r.ticketIndex); html+=logRowHtml(r, expanded); }
+    html+='<div class="spacer" style="height:'+bottomPad+'px"></div>';
+    content.innerHTML=html;
+  }else{
+    var out=''; for(var j=0;j<data.length;j++){ var rr=data[j]; out+=logRowHtml(rr, true); } content.innerHTML=out;
+  }
+}
+function bindLogEvents(){
+  var vp=$('#logViewport'), content=$('#logContent'), header=$('#logHeader'); if(!vp||!content||!header) return;
+  vp.addEventListener('scroll', function(){ if(state.virtualization) renderLog(false); });
+  content.addEventListener('click', function(e){
+    var row=e.target.closest('.log-row'); if(row && e.target.classList.contains('expander')){ var id=row.getAttribute('data-id'); if(state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id); renderLog(true); }
+  });
+  header.addEventListener('click', function(e){
+    var th=e.target.closest('.sortable'); if(!th) return; var col=th.getAttribute('data-col'); var shift=e.shiftKey;
+    var spec=state.sortSpec.slice(); var ex=null; for(var i=0;i<spec.length;i++){ if(spec[i].col===col){ ex=spec[i]; break; } }
+    if(ex){ ex.dir=ex.dir==='asc'?'desc':'asc'; if(!shift) spec=[ex]; }
+    else { if(shift) spec.push({col:col,dir:'desc'}); else spec=[{col:col,dir:'desc'}]; }
+    state.sortSpec=spec;
+    $all('.log-header .sortable').forEach(function(d){ d.removeAttribute('data-dir'); });
+    for(var i2=0;i2<spec.length;i2++){ var s=spec[i2]; var el=$('.log-header .sortable[data-col="'+s.col+'"]'); if(el) el.setAttribute('data-dir', s.dir); }
+    renderLog(true);
+  });
+}
+
+/* ===================== CSV ===================== */
+function exportCSV(){
+  var rows=filteredRows(); if(!rows.length){ showToast(state.lang==='fa'?'لاگی برای خروجی نیست.':'No log to export.'); return; }
+  var head="timestamp,sessionId,ticketIndex,day,numbersMain,numbersBonus,matchedMain,matchedBonus,prizeAmountMinor,spentAmountMinor,netAmountMinor,currencyBase,presetName\n";
+  var parts=[head], CH=20000;
+  for(var i=0;i<rows.length;i+=CH){
+    var seg=rows.slice(i,i+CH).map(function(r){
+      return [r.timestamp,r.sessionId,r.ticketIndex,r.day,'"'+r.numbersMain.join(',')+'"','"'+(r.numbersBonus||[]).join(',')+'"',r.matchedMain,r.matchedBonus,r.prizeAmount,r.spentAmount,r.netAmount,state.currency.base.code,'"'+r.presetName+'"'].join(',');
+    }).join("\n")+"\n";
+    parts.push(seg);
+  }
+  var blob=new Blob(parts,{type:"text/csv"}), url=URL.createObjectURL(blob), a=create('a',{href:url,download:'lotto-'+(state.sessionId||'session')+'.csv'}); document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+/* ===================== Sessions ===================== */
+function refreshSessions(){
+  var all={}; try{ all=JSON.parse(localStorage.getItem(LS_SESSIONS)||'{}'); }catch(e){}
+  var list=$('#sessionList'); if(list){ var opts=['<option value="">—</option>']; var ids=Object.keys(all).sort().reverse(); for(var i=0;i<ids.length;i++){ var id=ids[i], st=(all[id].stats||{}); opts.push('<option value="'+id+'">'+id+' — '+all[id].presetName+' — t:'+(st.tickets||0)+'</option>'); } list.innerHTML=opts.join(''); }
+  var tbody=$('#leaderTbl tbody'); if(tbody){ var rows=''; for(var k in all){ var s=all[k], st=s.stats||{spent:0,paid:0,jackpots:0,tickets:0}; var net=(st.paid|0)-(st.spent|0); var roi=(st.spent>0)?((st.paid/st.spent)-1):0; rows+='<tr><td>'+k+'</td><td>'+s.presetName+'</td><td>'+fmt(st.tickets||0)+'</td><td>'+fmt(st.jackpots||0)+'</td><td>'+moneyBase(st.spent||0)+'</td><td>'+moneyBase(st.paid||0)+'</td><td>'+moneyBase(net)+'</td><td>'+ (roi*100).toFixed(2)+'%</td></tr>'; } tbody.innerHTML=rows; }
+}
+
+/* ===================== Run Loop ===================== */
+function setRunning(on){
+  state.isRunning=on; state.isPaused=false;
+  var s=$('#gcStart'), p=$('#gcPause'), r=$('#gcReset'); if(s)s.disabled=on; if(p)p.disabled=!on; if(r)r.disabled=!on;
+  var st=$('#rcStatus'); if(st) st.textContent=on?(state.lang==='fa'?'در حال اجرا…':'Running…'):'';
+  document.body.classList.toggle('running', on);
+}
+function updateKPIs(){
+  var net=state.stats.paid-state.stats.spent;
+  $('#k_tickets').textContent=fmt(state.stats.tickets);
+  $('#k_days').textContent=fmt(state.stats.days);
+  $('#k_jackpots').textContent=fmt(state.stats.jackpots);
+  $('#k_spent').textContent=moneyBoth(state.stats.spent);
+  $('#k_paid').textContent=moneyBoth(state.stats.paid);
+  $('#k_net').textContent=moneyBoth(net);
+  $('#k_net').style.color = net>=0? cssVar('--ok'): cssVar('--danger');
+}
+function updateProgress(){
+  var total=state.totalTickets||1; var pct=Math.floor((state.stats.tickets/total)*100);
+  var bar=$('#progressBar'); if(bar) bar.style.width=Math.max(0,Math.min(100,pct))+'%';
+  var t=$('#progressText'); if(t) t.textContent=(state.lang==='fa'?'پیشرفت: ':'Progress: ')+fmt(state.stats.tickets)+'/'+fmt(total)+' ('+pct+'%)';
+}
+function renderMiniLog(){
+  var n=parseInt(($('#miniLogN') && $('#miniLogN').value)||'200',10)||200;
+  var slice=state.rows.slice(-n);
+  var tb=$('#miniLogTbl tbody'); if(!tb) return;
+  tb.innerHTML=slice.map(function(r){ return '<tr><td>'+r.ticketIndex+'</td><td>'+r.matchedMain+'</td><td>'+r.matchedBonus+'</td><td>'+moneyCell(r.prizeAmount)+'</td><td>'+moneyCell(r.netAmount)+'</td></tr>'; }).join('');
+}
+function startRun(){
+  if(state.isRunning) return;
+  state.sessionId='session-'+new Date().toISOString().replace(/[-:TZ.]/g,'').slice(0,14);
+  // read console
+  state.targetMode=($('#gcTargetMode') && $('#gcTargetMode').value)||'random';
+  state.ticketsPerDay=+($('#gcTicketsPerDay') && $('#gcTicketsPerDay').value)||500;
+  state.totalTickets=+($('#gcTotalTickets') && $('#gcTotalTickets').value)||200000;
+  state.ticketPrice=+($('#gcTicketPrice') && $('#gcTicketPrice').value)||state.ticketPrice;
+  state.chunkSize=+($('#gcChunk') && $('#gcChunk').value)||1000;
+  state.speedMs=+($('#gcThrottle') && $('#gcThrottle').value)||16;
+  state.logMode=($('#gcLogMode') && $('#gcLogMode').value)||'all';
+  state.stopOnJackpot=($('#gcStopOnJackpot') && $('#gcStopOnJackpot').checked)||false;
+
+  // reset runtime
+  state.rows.length=0; state.expanded.clear(); state.virtualization=true;
+  state.stats={tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}}; state.dailyPL.length=0; state.plPoints.length=0; state.roiPoints.length=0; state.lastChartDraw=0;
+
+  destroyWorker(); workerRef=createWorker();
+  workerRef.onmessage=function(e){
+    var d=e.data||{};
+    if(d.type==='chunk'){
+      state.stats=d.stats; var dd=$('#d_day'); if(dd) dd.textContent=d.day; var dt=$('#d_today'); if(dt) dt.textContent=d.todayTickets; var dw=$('#d_wins'); if(dw) dw.textContent=d.todayWins;
+      if(d.rows && d.rows.length){ Array.prototype.push.apply(state.rows,d.rows); if(state.rows.length>50000) state.rows.splice(0,state.rows.length-50000); }
+      if(d.deltaDays && d.deltaDays.length){ d.deltaDays.forEach(function(x){ state.dailyPL.push(x); }); }
+      updateKPIs(); renderMiniLog(); renderLog(false);
+      state.plPoints.push({x:state.stats.tickets,y:state.stats.net});
+      var roi=state.stats.spent>0? (state.stats.paid/state.stats.spent - 1)*100 : 0; state.roiPoints.push({x:state.stats.tickets,y:roi});
+      if(state.plPoints.length>state.chartMaxPoints) state.plPoints.splice(0, state.plPoints.length-state.chartMaxPoints);
+      if(state.roiPoints.length>state.chartMaxPoints) state.roiPoints.splice(0, state.roiPoints.length-state.chartMaxPoints);
+      drawAllCharts(false); updateProgress();
+    }
+    if(d.type==='done'){ if(d.deltaDays && d.deltaDays.length){ d.deltaDays.forEach(function(x){ state.dailyPL.push(x); }); } setRunning(false); drawAllCharts(true); }
+  };
+
+  var cfg={
+    sessionId:state.sessionId, presetName:state.presetName,
+    n:state.n,k:state.k,bonusCount:state.bonusCount,bonusPool:state.bonusPool,bonusFromMainPool:state.bonusFromMainPool,
+    ticketPrice:state.ticketPrice, prizeEngine:state.prizeEngine, prizeMap:state.prizeMap, basePrizeMap:state.basePrizeMap, multiplier:state.multiplier, powerPlay:state.powerPlay,
+    jackpotBaseMinor:state.jackpotBaseMinor, freePlayCreditMinor:state.ticketPrice,
+    targetMode:state.targetMode, targetMain:state.targetMain, targetBonus:state.targetBonus,
+    ticketsPerDay:state.ticketsPerDay, totalTickets:state.totalTickets, changeTargetDaily:state.changeTargetDaily,
+    chunkSize:state.chunkSize, delayMs:state.speedMs, stopOnJackpot:state.stopOnJackpot, logMode:state.logMode, usePowerPlay:false,
+    range:{rangeMode:state.rangeMode,multiRanges:state.multiRanges,includeList:state.includeList,excludeList:state.excludeList,maxConsecutive:state.maxConsecutive,evenMin:state.evenMin,evenMax:state.evenMax,sumMin:state.sumMin,sumMax:state.sumMax}
+  };
+  workerRef.postMessage({type:'start',config:cfg});
+  setRunning(true);
+}
+function togglePause(){ if(!state.isRunning) return; state.isPaused=!state.isPaused; if(workerRef) workerRef.postMessage({type: state.isPaused?'pause':'resume'}); }
+function stopRun(reset){
+  if(workerRef) workerRef.postMessage({type:'stop'}); destroyWorker(); setRunning(false);
+  if(reset){ state.rows.length=0; state.stats={tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}}; state.dailyPL.length=0; state.plPoints.length=0; state.roiPoints.length=0; updateKPIs(); renderMiniLog(); renderLog(true); drawAllCharts(true); updateProgress(); }
+}
+
+/* ===================== Currency Modal ===================== */
+function fillCurrencySelect(sel, code){ if(!sel) return; var opts=''; for(var k in CURS){ opts+='<option value="'+k+'">'+k+'</option>'; } sel.innerHTML=opts; sel.value=code; }
+function openCurrency(){ var m=$('#currencyModal'); if(m) m.classList.remove('hide'); refreshCurrencyModal(); }
+function closeCurrency(){ var m=$('#currencyModal'); if(m) m.classList.add('hide'); }
+function refreshCurrencyModal(){
+  var b=state.currency.base, s=state.currency.second;
+  if($('#curMode')) $('#curMode').value=state.currency.mode;
+  if($('#curShowBoth')) $('#curShowBoth').checked=!!s.showBoth;
+  if($('#curConvertPreset')) $('#curConvertPreset').checked=!!state.currency.convertPreset;
+  fillCurrencySelect($('#baseCode'), b.code||'USD'); if($('#baseSymbol')) $('#baseSymbol').value=b.symbol|| (CURS[b.code]&&CURS[b.code].symbol)||'$'; if($('#baseMinor')) $('#baseMinor').value=b.minorUnit|| (CURS[b.code]&&CURS[b.code].minor)||100;
+  if($('#basePreview')) $('#basePreview').textContent=(b.code||'USD')+' — '+(b.symbol||'$')+' • 1/'+(b.minorUnit||100);
+
+  fillCurrencySelect($('#secCode'), s.code||'TOMAN'); if($('#secSymbol')) $('#secSymbol').value=s.symbol|| (CURS[s.code]&&CURS[s.code].symbol)||'¤'; if($('#secMinor')) $('#secMinor').value=s.minorUnit|| (CURS[s.code]&&CURS[s.code].minor)||1;
+  if($('#secRate')) $('#secRate').value=s.ratePerBase||115000;
+  if($('#rateBaseCode')) $('#rateBaseCode').textContent=b.code||'USD'; if($('#rateSecCode')) $('#rateSecCode').textContent=s.code||'TOMAN';
+
+  var pc=(PRESETS[state.presetName]&&PRESETS[state.presetName].currencyCode)||'USD'; if($('#presetCurCode')) $('#presetCurCode').textContent=pc; if($('#presetCurLabel')) $('#presetCurLabel').textContent=pc;
+  if($('#baseCurLabel')) $('#baseCurLabel').textContent=b.code||'USD';
+  if($('#fxPresetToBase')) $('#fxPresetToBase').value=state.currency.fxPresetToBase||1;
+}
+function applyCurrencyChanges(){
+  var mode=$('#curMode') && $('#curMode').value; var showBoth=$('#curShowBoth') && $('#curShowBoth').checked; var convPreset=$('#curConvertPreset') && $('#curConvertPreset').checked;
+  var bCode=$('#baseCode') && $('#baseCode').value; var bSym=$('#baseSymbol') && $('#baseSymbol').value; var bMin=parseInt($('#baseMinor') && $('#baseMinor').value,10)||100;
+  var sCode=$('#secCode') && $('#secCode').value; var sSym=$('#secSymbol') && $('#secSymbol').value; var sMin=parseInt($('#secMinor') && $('#secMinor').value,10)||1; var rate=parseFloat($('#secRate') && $('#secRate').value)||1;
+  var fxPB=parseFloat($('#fxPresetToBase') && $('#fxPresetToBase').value)||1;
+
+  state.currency.mode=mode||'single';
+  state.currency.base={code:bCode||'USD',symbol:bSym||'$',minorUnit:bMin};
+  state.currency.second={enabled:(state.currency.mode==='dual'),code:sCode||'TOMAN',symbol:sSym||'¤',minorUnit:sMin,ratePerBase:rate,showBoth:showBoth};
+  state.currency.convertPreset=!!convPreset; state.currency.fxPresetToBase=fxPB;
+
+  renderCurrencyChip();
+  applyPreset(state.presetName); // re-apply for price/prizes
+  updateKPIs(); renderMiniLog(); renderLog(true); closeCurrency(); saveSettings();
+}
+
+/* ===================== Preset Quick Picker ===================== */
+function buildPresetCards(){
+  var cards=''; var keys=Object.keys(PRESETS); for(var i=0;i<keys.length;i++){ var n=keys[i], p=PRESETS[n]; var sub=p.k+'/'+p.n+(p.bonusCount?(' + '+p.bonusCount+'★/'+p.bonusPool):'')+' — '+p.currencySymbol+((p.ticketPriceMinor/(p.minorUnit||100)).toFixed(2)); cards+='<button class="btn" style="text-align:start;width:100%" data-name="'+n+'">🎲 <b>'+n+'</b><br><span class="muted">'+sub+'</span></button>'; }
+  var box=$('#presetCards'); if(box){ box.innerHTML=cards; $all('#presetCards .btn').forEach(function(b){ b.addEventListener('click', function(){ applyPreset(b.getAttribute('data-name')); closePresetModal(); }); }); }
+}
+function openPresetModal(){ var m=$('#presetModal'); if(m) m.classList.remove('hide'); }
+function closePresetModal(){ var m=$('#presetModal'); if(m) m.classList.add('hide'); }
+
+/* ===================== Mode Bar helpers ===================== */
+function updateModeBar(){
+  var isSimple=(state.mode==='simple');
+  if($('#modeBadge')) $('#modeBadge').textContent=isSimple?'Simple':'Advanced';
+  if($('#chipSimple'))   $('#chipSimple').setAttribute('data-active', isSimple?'true':'false');
+  if($('#chipAdvanced')) $('#chipAdvanced').setAttribute('data-active', !isSimple?'true':'false');
+  // Hint text
+  var h=$('#modeBarHint'); if(h){ h.textContent=isSimple ? 'در حالت ساده فقط لاگ خلاصه در پایین نمایش داده می‌شود.' : 'در حالت حرفه‌ای از چیپ‌ها به تب‌های تنظیمات، فیلترها، لاگ و ... بروید.'; }
+}
+function goAdvancedTab(tabId){
+  setMode('advanced');
+  // select tab
+  var btn = document.querySelector('.tabs button[data-tab="'+tabId+'"]');
+  if(btn){ btn.click(); }
+  smoothScrollTo(document.getElementById('advancedArea'));
+}
+
+/* ===================== Init & Wiring ===================== */
+function renderPresetBadge(){ renderPresetChip(); updatePriceDisplay(); }
+function applyLangDir(){
+  applyI18n();
+  document.documentElement.lang=(state.lang==='fa'?'fa':'en');
+  document.documentElement.dir=(state.lang==='fa'?'rtl':'ltr');
+}
+function setMode(m){
+  state.mode=m;
+  var sa=$('#simpleArea'), aa=$('#advancedArea'), mt=$('#modeToggle'); if(sa) sa.classList.toggle('hide', m!=='simple'); if(aa) aa.classList.toggle('hide', m!=='advanced');
+  if(mt){ mt.querySelector('span').textContent=(state.lang==='fa'?(m==='simple'?'حالت: ساده':'حالت: حرفه‌ای'):(m==='simple'?'Mode: Simple':'Mode: Advanced')); }
+  updateModeBar();
+  // اسکرول به کنسول اجرا تا تغییر حالت واضح دیده شود
+  smoothScrollTo(document.getElementById('runConsole'));
+  // نشانه URL برای بوکمارک
+  try{ history.replaceState(null, '', '#'+m); }catch(e){}
+  showToast(m==='simple'?'Simple mode':'Advanced mode');
+}
+function addRangeItem(a,b){
+  var wrap=create('div',{class:'between',style:'gap:6px'}), i1=create('input',{type:'number',min:'1',value:String(a),style:'width:100px'}), i2=create('input',{type:'number',min:'1',value:String(b),style:'width:100px'}), del=create('button',{class:'btn ghost'},'🗑️');
+  i1.addEventListener('change',collectRanges); i2.addEventListener('change',collectRanges); del.addEventListener('click',function(){ wrap.remove(); collectRanges(); });
+  wrap.appendChild(document.createTextNode('[ ')); wrap.appendChild(i1); wrap.appendChild(document.createTextNode(' .. ')); wrap.appendChild(i2); wrap.appendChild(document.createTextNode(' ] ')); wrap.appendChild(del);
+  var box=$('#rangesBox'); if(box) box.appendChild(wrap); collectRanges();
+}
+function collectRanges(){
+  var box=$('#rangesBox'); if(!box) return; state.multiRanges=[]; var childs=box.children; for(var i=0;i<childs.length;i++){ var ins=childs[i].querySelectorAll('input'); if(ins && ins.length===2){ var a=+ins[0].value||1, b=+ins[1].value||1; state.multiRanges.push([Math.min(a,b),Math.max(a,b)]); } }
+  saveSettings();
+}
+
+function init(){
+  loadSettings();
+  renderCurrencyChip();
+  loadPresetOptions();
+  applyPreset(state.presetName);
+  applyLangDir();
+  setMode(state.mode);
+  renderPresetBadge();
+  renderMiniLog();
+  drawAllCharts(true);
+  bindPLTooltip();
+  bindLogEvents();
+  refreshSessions();
+  updateProgress();
+  updateModeBar();
+
+  // HEADER
+  on('presetTop','change', function(){ var v=$('#presetTop').value; applyPreset(v); });
+  on('openPresetPicker','click', openPresetModal);
+  on('closePresetModal','click', closePresetModal);
+
+  on('openCurrency','click', openCurrency);
+  on('curClose','click', closeCurrency);
+  on('curSave','click', applyCurrencyChanges);
+  on('baseCode','change', function(){ var c=$('#baseCode').value; $('#baseSymbol').value=(CURS[c]&&CURS[c].symbol)||'$'; $('#baseMinor').value=(CURS[c]&&CURS[c].minor)||100; $('#rateBaseCode').textContent=c; $('#baseCurLabel').textContent=c; $('#basePreview').textContent=c+' — '+$('#baseSymbol').value+' • 1/'+$('#baseMinor').value; });
+  on('secCode','change', function(){ var c=$('#secCode').value; $('#secSymbol').value=(CURS[c]&&CURS[c].symbol)||'¤'; $('#secMinor').value=(CURS[c]&&CURS[c].minor)||1; $('#rateSecCode').textContent=c; });
+
+  on('modeToggle','click', function(){ setMode(state.mode==='simple'?'advanced':'simple'); });
+  on('themeToggle','click', function(){ var t=document.body.getAttribute('data-theme')==='dark'?'light':'dark'; document.body.setAttribute('data-theme',t); });
+  on('dirLangToggle','click', function(){ if(state.lang==='fa'){state.lang='en'; state.locale='en-US';} else {state.lang='fa'; state.locale='fa-IR';} applyLangDir(); renderPrizeTable(); renderPresetBadge(); renderCurrencyChip(); renderLog(true); drawAllCharts(true); saveSettings(); updateModeBar(); });
+
+  // MODE BAR chips
+  on('chipSimple','click', function(){ setMode('simple'); });
+  on('chipAdvanced','click', function(){ setMode('advanced'); });
+  on('chipConsole','click', function(){ smoothScrollTo(document.getElementById('runConsole')); });
+  on('chipSettings','click', function(){ goAdvancedTab('settings'); });
+  on('chipDaily','click',    function(){ goAdvancedTab('daily'); });
+  on('chipFilters','click',  function(){ goAdvancedTab('filters'); });
+  on('chipLog','click',      function(){ goAdvancedTab('log'); });
+  on('chipSessions','click', function(){ goAdvancedTab('sessions'); });
+  on('chipHelp','click',     function(){ goAdvancedTab('help'); });
+
+  // RUN CONSOLE
+  on('gcStart','click', startRun);
+  on('gcPause','click', togglePause);
+  on('gcReset','click', function(){ stopRun(true); });
+  on('gcExport','click', exportCSV);
+  on('pricePlus','click', function(){ state.ticketPrice=(+($('#gcTicketPrice')&&$('#gcTicketPrice').value)||0)+(state.currency.base.minorUnit||100); updatePriceDisplay(); saveSettings(); });
+  on('priceMinus','click', function(){ state.ticketPrice=Math.max(0,(+($('#gcTicketPrice')&&$('#gcTicketPrice').value)||0)-(state.currency.base.minorUnit||100)); updatePriceDisplay(); saveSettings(); });
+  on('gcTicketPrice','change', function(){ state.ticketPrice=+($('#gcTicketPrice')&&$('#gcTicketPrice').value)||0; updatePriceDisplay(); saveSettings(); });
+
+  // SETTINGS
+  on('genTarget','click', randomizeTarget);
+  ['advN','advK','advBCount','advBPool'].forEach(function(id){
+    on(id,'change', function(){
+      state.n=+($('#advN')&&$('#advN').value)||0; state.k=+($('#advK')&&$('#advK').value)||0; state.bonusCount=+($('#advBCount')&&$('#advBCount').value)||0; state.bonusPool=+($('#advBPool')&&$('#advBPool').value)||0;
+      renderPrizeTable(); renderTargetsUI(); saveSettings();
+    });
+  });
+  on('changeTargetDaily','change', function(){ state.changeTargetDaily=$('#changeTargetDaily').checked; saveSettings(); });
+  on('stopOnJackpot','change', function(){ state.stopOnJackpot=$('#stopOnJackpot').checked; $('#gcStopOnJackpot') && ($('#gcStopOnJackpot').checked=state.stopOnJackpot); saveSettings(); });
+
+  // FILTERS
+  on('addRange','click', function(){ addRangeItem(1,state.n); });
+  on('clearRanges','click', function(){ var box=$('#rangesBox'); if(box) box.innerHTML=''; state.multiRanges=[]; saveSettings(); });
+  on('rangeMode','change', function(){ state.rangeMode=$('#rangeMode').value; saveSettings(); });
+  ['maxConsecutive','evenMin','evenMax','sumMin','sumMax','includeList','excludeList'].forEach(function(id){
+    on(id,'change', function(){
+      state.maxConsecutive=+($('#maxConsecutive')&&$('#maxConsecutive').value)||null;
+      state.evenMin=$('#evenMin')&&$('#evenMin').value!==''? +$('#evenMin').value : null;
+      state.evenMax=$('#evenMax')&&$('#evenMax').value!==''? +$('#evenMax').value : null;
+      state.sumMin=$('#sumMin')&&$('#sumMin').value!==''? +$('#sumMin').value : null;
+      state.sumMax=$('#sumMax')&&$('#sumMax').value!==''? +$('#sumMax').value : null;
+      state.includeList=(($('#includeList')&&$('#includeList').value)||'').split(',').map(function(x){return parseInt(x.trim(),10)}).filter(function(v){return !isNaN(v)});
+      state.excludeList=(($('#excludeList')&&$('#excludeList').value)||'').split(',').map(function(x){return parseInt(x.trim(),10)}).filter(function(v){return !isNaN(v)});
+      saveSettings();
+    });
+  });
+
+  // LOG
+  on('filterWins','change', function(){ state.winsOnly=$('#filterWins').checked; renderLog(true); });
+  ['prizeMin','prizeMax','matchAtLeast'].forEach(function(id){
+    on(id,'change', function(){ state.prizeMin=$('#prizeMin')&&$('#prizeMin').value!==''? +$('#prizeMin').value : null; state.prizeMax=$('#prizeMax')&&$('#prizeMax').value!==''? +$('#prizeMax').value : null; state.matchAtLeast=$('#matchAtLeast')&&$('#matchAtLeast').value!==''? +$('#matchAtLeast').value : null; renderLog(true); });
+  });
+  on('searchLog','input', function(){ state.searchTerm=$('#searchLog').value||''; renderLog(true); });
+  on('exportCsvAdv','click', exportCSV);
+  on('miniLogN','change', renderMiniLog);
+
+  // Sessions
+  on('saveSession','click', function(){
+    var all={}; try{ all=JSON.parse(localStorage.getItem(LS_SESSIONS)||'{}'); }catch(e){}
+    var id=state.sessionId||('manual-'+Date.now()); all[id]={savedAt:new Date().toISOString(),presetName:state.presetName,settings:{n:state.n,k:state.k,bonusCount:state.bonusCount,bonusPool:state.bonusPool,ticketPrice:state.ticketPrice,currency:state.currency},stats:state.stats};
+    localStorage.setItem(LS_SESSIONS, JSON.stringify(all)); refreshSessions(); showToast(state.lang==='fa'?'جلسه ذخیره شد.':'Session saved.');
+  });
+  on('loadSession','click', function(){
+    var id=$('#sessionList')&&$('#sessionList').value; if(!id) return; var all={}; try{ all=JSON.parse(localStorage.getItem(LS_SESSIONS)||'{}'); }catch(e){} var s=all[id]; if(!s) return;
+    applyPreset(s.presetName); if(s.settings && s.settings.currency){ state.currency=s.settings.currency; renderCurrencyChip(); } state.stats=s.stats||state.stats; drawAllCharts(true); updateKPIs(); renderLog(true); showToast(state.lang==='fa'?'جلسه بارگذاری شد.':'Session loaded.');
+  });
+  on('clearStorage','click', function(){ localStorage.removeItem(LS_SETTINGS); localStorage.removeItem(LS_SESSIONS); refreshSessions(); showToast(state.lang==='fa'?'پاک شد.':'Cleared.'); });
+
+  // Tabs
+  $all('.tabs button').forEach(function(b){
+    b.addEventListener('click', function(){
+      $all('.tabs button').forEach(function(x){ x.classList.toggle('active', x===b); });
+      var id=b.getAttribute('data-tab'); ['settings','daily','filters','log','sessions','help'].forEach(function(t){ var el=$('#tab-'+t); if(el) el.classList.toggle('hide', t!==id); });
+      smoothScrollTo(document.getElementById('advancedArea'));
+      drawAllCharts(true);
+    });
+  });
+
+  // Keyboard
+  window.addEventListener('keydown', function(e){
+    if(e.key===' '){ e.preventDefault(); togglePause(); }
+    else if(e.key==='s'||e.key==='S'){ startRun(); }
+    else if(e.key==='r'||e.key==='R'){ stopRun(true); }
+    else if(e.key==='t'||e.key==='T'){ var tt=document.getElementById('themeToggle'); if(tt) tt.click(); }
+    else if(e.key==='l'||e.key==='L'){ var dl=document.getElementById('dirLangToggle'); if(dl) dl.click(); }
+  });
+
+  // Ensure modals hidden
+  var pm=$('#presetModal'); if(pm) pm.classList.add('hide'); var cm=$('#currencyModal'); if(cm) cm.classList.add('hide');
+
+  // Jump to hash (if any)
+  try{ if(location.hash==='#advanced') setMode('advanced'); else if(location.hash==='#simple') setMode('simple'); }catch(e){}
+}
+
+window.addEventListener('beforeunload', destroyWorker);
+document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>

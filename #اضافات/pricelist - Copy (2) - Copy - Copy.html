@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🎰 شبیه‌ساز پیشرفته لاتاری | Lottery Simulator</title>
+<style>
+/*
+  Lottery Simulator — single-file, no-deps, FA/EN + RTL/LTR, dual-currency, Web Worker, IndexedDB logs
+  Architecture (high level)
+  - UI (main thread): state, i18n, currency, panels/tabs, canvas charts, virtualized log, IndexedDB, CSV export
+  - Worker (blob): simulation loop (two engines: 'full' lottery-style & 'param' probabilistic), batched posts, pause/resume/reset
+  - Persistence: localStorage keys (exact): lsim.settings, lsim.sessions, lsim.locale, lsim.dir, lsim.currency
+  - Performance: throttled rendering (uiThrottle), adaptive batching when page hidden, ring-buffer mini log, decimated charts
+  Dev notes: keyboard shortcuts: S/Space/R/E
+*/
+:root{
+  /* light */
+  --bg:#f6f8fb; --panel:#ffffff; --card:#ffffff; --ring:#cfe0ff;
+  --text:#0e1726; --muted:#5f6b84;
+  --accent:#0066ff; --accent-2:#00b8d9; --accent-3:#6ee7b7;
+  --ok:#17c964; --warn:#f5a524; --danger:#f31260; --zero:#ff4d4f;
+  --radius:16px; --shadow:0 10px 30px rgba(8,15,30,.06);
+  --grid:#e9edf5;
+}
+:root[data-theme="dark"]{
+  --bg:#0b1323; --panel:#0f1627; --card:#0e1729; --ring:#21324f;
+  --text:#E7F0FF; --muted:#8FA4C7;
+  --accent:#00E0D3; --accent-2:#11A7FF; --accent-3:#2FECBB;
+  --ok:#2BD67B; --warn:#FFB85C; --danger:#FF5E6A; --zero:#FF6B6B;
+  --grid:#16213a;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font:14px/1.6 system-ui, -apple-system, Segoe UI, Roboto, "Vazirmatn", Tahoma, Arial;
+  background: radial-gradient(1200px 800px at 80% -20%, rgba(0,160,255,.08), transparent 60%),
+              radial-gradient(1000px 600px at -10% 120%, rgba(0,255,200,.06), transparent 60%),
+              var(--bg);
+  color:var(--text);
+}
+.container{max-width:1220px;margin:0 auto;padding:16px}
+.header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.h-left{display:flex;gap:10px;align-items:center}
+.brand{font-weight:800;font-size:18px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff;font-weight:600}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:10px;padding:8px 12px;background:var(--panel);box-shadow:var(--shadow);cursor:pointer;color:var(--text)}
+.btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff}
+.btn.warn{background:linear-gradient(90deg,#ff7849,#ff3b30);color:#fff}
+.btn.ghost{background:transparent;border:1px solid var(--ring)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:hover{filter:brightness(1.03)}
+.btn:focus{outline:2px solid var(--ring)}
+.switch{display:inline-flex;gap:8px;align-items:center}
+.input, select, textarea{border:1px solid var(--ring);background:var(--panel);border-radius:10px;padding:8px 10px;color:var(--text)}
+textarea{resize:vertical}
+.panel{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;margin-bottom:12px}
+.panel h3{margin:0 0 8px 0;font-size:16px}
+.grid{display:grid;gap:12px}
+@media (min-width:1100px){.grid.cols-3{grid-template-columns:repeat(3,1fr)}.grid.cols-4{grid-template-columns:repeat(4,1fr)}}
+@media (max-width:1099.98px){.grid.cols-3{grid-template-columns:repeat(2,1fr)}.grid.cols-4{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:850.98px){.grid.cols-3,.grid.cols-4{grid-template-columns:1fr}}
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(6,1fr)}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:850px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--card);border-radius:14px;padding:10px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px;transition:transform .15s ease}
+.kpi:hover{transform:translateY(-2px)}
+.kpi .label{font-size:12px;color:var(--muted)}
+.kpi .value{font-size:18px;font-weight:700}
+.kpi .value.pos{color:var(--ok)}
+.kpi .value.neg{color:var(--danger)}
+.progress{height:10px;border-radius:999px;background:linear-gradient(90deg,rgba(127,127,127,.15),rgba(127,127,127,.05));overflow:hidden}
+.progress>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-3),var(--accent));width:0%;transition:width .3s ease}
+.tabs{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.tab{padding:8px 12px;border-radius:999px;border:1px solid var(--ring);background:var(--panel);cursor:pointer}
+.tab.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.group{display:grid;gap:6px}
+.help{font-size:12px;color:var(--muted)}
+.badge-chip{display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border-radius:999px;background:var(--card);border:1px dashed var(--ring)}
+.status{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;background:var(--card);border:1px solid var(--ring)}
+.status.running{border-color:var(--ok)}.status.paused{border-color:var(--warn)}.status.idle{border-color:var(--ring)}
+.hr{height:1px;background:var(--grid);margin:6px 0}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px}
+.canvas{width:100%;height:180px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.03),transparent);display:block}
+.log-viewport{height:260px;overflow:auto;border:1px solid var(--ring);border-radius:12px;background:var(--panel)}
+.log-row{display:grid;grid-template-columns:80px 90px 80px 1fr 80px 120px;gap:6px;padding:6px;border-bottom:1px dashed var(--grid)}
+.log-row:hover{background:rgba(127,127,127,.06)}
+.toast{position:fixed;inset-inline-end:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:1000}
+.toast .t{background:var(--card);border:1px solid var(--ring);padding:10px 12px;border-radius:12px;box-shadow:var(--shadow)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:999}
+.modal[open]{display:flex}
+.dialog{width:min(700px,92vw);background:var(--panel);border-radius:16px;box-shadow:var(--shadow);padding:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.target-chip{padding:6px 10px;border:1px dashed var(--ring);border-radius:999px;background:var(--card)}
+.badge-dual{font-size:12px;color:var(--muted)}
+.small{font-size:12px;color:var(--muted)}
+/* Ticket grid */
+.ticket-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;border:1px solid var(--ring);border-radius:12px;padding:10px;background:var(--panel)}
+.ticket-num{display:flex;align-items:center;justify-content:center;height:36px;border-radius:8px;background:var(--card);border:1px solid var(--ring);cursor:pointer;user-select:none}
+.ticket-num.active{background:linear-gradient(90deg,var(--accent-2),var(--accent));color:#fff;border-color:transparent}
+.ticket-num.locked{outline:2px dashed var(--warn)}
+.tag{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--ring);border-radius:999px;padding:4px 8px}
+.footer{opacity:.7;text-align:center;padding:20px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+  <div class="container">
+    <header class="header" aria-label="app header">
+      <div class="h-left">
+        <span class="badge">🎰 Lottery Simulator</span>
+        <span class="brand" data-i18n="title">شبیه‌ساز پیشرفته لاتاری</span>
+        <span id="sessionChip" class="badge-chip" aria-live="polite">—</span>
+      </div>
+      <div class="controls">
+        <button id="btnTheme" class="btn" data-i18n="theme">تم: تیره/روشن</button>
+        <button id="btnLang" class="btn" data-i18n="lang">FA / EN</button>
+        <button id="btnDir" class="btn" data-i18n="dir">RTL / LTR</button>
+        <button id="btnCurrency" class="btn" data-i18n="currency">ارز</button>
+        <button id="btnHelp" class="btn ghost" data-i18n="help">راهنما</button>
+      </div>
+    </header>
+
+    <!-- Run Controls -->
+    <section class="panel" aria-labelledby="runTitle">
+      <h3 id="runTitle" data-i18n="run">کنترل اجرا</h3>
+      <div class="row">
+        <label class="switch"><input id="chkStopJP" type="checkbox"/> <span data-i18n="stopOnJackpot">ایست روی جکپات</span></label>
+        <button id="btnStart" class="btn primary" accesskey="s">▶ <span data-i18n="start">شروع/ادامه</span> (S)</button>
+        <button id="btnPause" class="btn" accesskey=" ">⏸ <span data-i18n="pause">مکث/ادامه</span> (Space)</button>
+        <button id="btnReset" class="btn warn" accesskey="r">♻ <span data-i18n="reset">ریست آمار/لاگ</span> (R)</button>
+        <button id="btnCsv" class="btn" accesskey="e">⬇ CSV (E)</button>
+        <span id="status" class="status idle" aria-live="polite">idle</span>
+      </div>
+      <div class="row" style="margin-top:8px;gap:8px">
+        <label>Limit</label>
+        <select id="runLimitKind" class="input">
+          <option value="tickets">Tickets</option>
+          <option value="days">Days</option>
+          <option value="minutes">Minutes</option>
+        </select>
+        <input id="runLimitVal" class="input" type="number" min="1" value="100000" style="width:140px">
+        <label class="switch"><input id="ecoMode" type="checkbox"> Eco mode</label>
+        <label>Rate cap</label>
+        <input id="rateCap" class="input" type="number" value="25000" style="width:140px">
+      </div>
+      <div class="help" id="runInfo">—</div>
+    </section>
+
+    <!-- Quick Controls -->
+    <section class="panel" aria-labelledby="quickTitle">
+      <h3 id="quickTitle" data-i18n="quick">کنترل‌های سریع</h3>
+      <div class="grid cols-4">
+        <div class="group">
+          <label data-i18n="preset">پریست</label>
+          <select id="selPreset" class="input">
+            <option value="classic6">classic6 (6/49+bonus)</option>
+            <option value="mini5">mini5 (5/35)</option>
+            <option value="param-default">param: default</option>
+            <option value="param-lucky">param: lucky</option>
+            <option value="param-grind">param: grind</option>
+          </select>
+        </div>
+        <div class="group">
+          <label data-i18n="ticketPrice">قیمت بلیت (minor)</label>
+          <input id="inpPrice" class="input" type="number" min="0" step="1" value="200"/>
+        </div>
+        <div class="group">
+          <label data-i18n="tpd">بلیت/روز</label>
+          <input id="inpTPD" class="input" type="number" min="1" step="1" value="1000"/>
+        </div>
+        <div class="group">
+          <label data-i18n="total">کل بلیت</label>
+          <input id="inpTotal" class="input" type="number" min="0" step="1" value="0"/>
+        </div>
+        <div class="group">
+          <label data-i18n="batch">Batch</label>
+          <input id="inpBatch" class="input" type="number" min="10" step="10" value="1000"/>
+        </div>
+        <div class="group">
+          <label data-i18n="uiDelay">UI Delay (ms)</label>
+          <input id="inpDelay" class="input" type="number" min="0" step="1" value="16"/>
+        </div>
+        <div class="group">
+          <label data-i18n="logMode">حالت لاگ</label>
+          <select id="selLogMode" class="input">
+            <option value="wins">Wins</option>
+            <option value="all">All</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+        <div class="group">
+          <label data-i18n="engine">Engine</label>
+          <select id="selEngine" class="input">
+            <option value="full">full (game)</option>
+            <option value="param">parametric</option>
+          </select>
+        </div>
+      </div>
+      <div class="help" data-i18n="quickHelp">نکته: Batch بزرگ و UI Delay کم ⇒ سرعت بیشتر ولی مصرف CPU بالاتر.</div>
+    </section>
+
+    <!-- Target & Currency -->
+    <section class="panel" aria-labelledby="targTitle">
+      <h3 id="targTitle" data-i18n="targetCurrency">هدف و ارز</h3>
+      <div class="row">
+        <button id="btnRollTarget" class="btn">🎲 <span data-i18n="roll">هدف تصادفی</span></button>
+        <div class="chips" id="targetChips"></div>
+        <span id="dualBadge" class="badge-dual"></span>
+      </div>
+    </section>
+
+    <!-- Settings Tabs -->
+    <section class="panel" aria-labelledby="settingsTitle">
+      <h3 id="settingsTitle" data-i18n="settings">تنظیمات</h3>
+      $1
+        <button class="tab" data-tab="cards" role="tab" data-i18n="tabCards">کارت‌ها</button>
+      </div>
+      <div id="tab_game" class="grid cols-3">
+        <div class="group"><label>maxMain</label><input id="s_maxMain" class="input" type="number" value="49" min="10"></div>
+        <div class="group"><label>mainCount</label><input id="s_mainCount" class="input" type="number" value="6" min="1"></div>
+        <div class="group"><label>hasBonus</label><select id="s_hasBonus" class="input"><option value="true">true</option><option value="false">false</option></select></div>
+        <div class="group"><label>maxBonus</label><input id="s_maxBonus" class="input" type="number" value="10" min="0"></div>
+        <div class="group" style="grid-column:1/-1"><label data-i18n="prizeMap">Prize Map</label>
+          <textarea id="s_prizeMap" class="input" rows="6">6,1=JACKPOT
+6=5000000
+5,1=100000
+5=50000
+4,1=10000
+4=3000
+3,1=1000
+3=200
+2,1=FREE_PLAY</textarea>
+          <div class="help" data-i18n="prizeHelp">فرمت: m[,b]=JACKPOT|FREE_PLAY|&lt;minor&gt;</div>
+        </div>
+        <div class="group" style="grid-column:1/-1">
+          <div id="prizeEditor" class="card">
+            <div class="row" style="justify-content:space-between">
+              <div class="small">Prize Editor</div>
+              <div class="row">
+                <button id="peAdd" class="btn">➕ Add rule</button>
+                <button id="peParse" class="btn">⬆ Parse from text</button>
+                <button id="peSync" class="btn primary">⬇ Sync to text</button>
+              </div>
+            </div>
+            <div id="peRows" class="grid cols-3" style="margin-top:6px"></div>
+          </div>
+        </div>
+      </div>
+      <div id="tab_target" class="grid cols-3 hide">
+        <div class="group"><label data-i18n="dailyRandom">Random Daily</label><select id="t_dailyRand" class="input"><option>true</option><option>false</option></select></div>
+        <div class="group"><label>dailyBonus</label><select id="t_dailyBonus" class="input"><option>true</option><option>false</option></select></div>
+        <div class="group" style="grid-column:1/-1"><label data-i18n="manual">Manual Target</label>
+          <input id="t_manual" class="input" placeholder="e.g. 1,2,3,4,5 | bonus=7" />
+          <div class="help" data-i18n="manualHint">فرمت: اعداد با کاما؛ bonus=اختیاری</div>
+        </div>
+      </div>
+      <div id="tab_perf" class="grid cols-3 hide">
+        <div class="group"><label>logCap</label><input id="p_logCap" class="input" type="number" value="50000"></div>
+        <div class="group"><label>chartDelay</label><input id="p_chartDelay" class="input" type="number" value="250"></div>
+        <div class="group"><label>chartTickStep</label><input id="p_chartStep" class="input" type="number" value="800"></div>
+      </div>
+      <div id="tab_filters" class="grid cols-3 hide">
+        <div class="group"><label>rangeMode</label><select id="f_rangeMode" class="input"><option>off</option><option>all</option><option>any</option></select></div>
+        <div class="group"><label>ranges</label><input id="f_ranges" class="input" placeholder="1-10;20-30"></div>
+        <div class="group"><label>include</label><input id="f_include" class="input" placeholder="1,2,3"></div>
+        <div class="group"><label>exclude</label><input id="f_exclude" class="input" placeholder="4,5"></div>
+        <div class="group"><label>evenOdd</label><input id="f_evenOdd" class="input" type="number" value="-1"></div>
+        <div class="group"><label>maxConsec</label><input id="f_maxConsec" class="input" type="number" value="0"></div>
+        <div class="group"><label>sumMin</label><input id="f_sumMin" class="input" type="number" value="0"></div>
+        <div class="group"><label>sumMax</label><input id="f_sumMax" class="input" type="number" value="0"></div>
+        <div class="help" data-i18n="filtersNote">فیلترها فضای نمونه را محدود می‌کنند؛ توزیع همچنان یکنواخت باقی می‌ماند.</div>
+      </div>
+      <div id="tab_cards" class="hide">
+        <h4 style="margin:6px 0">🎫 <span data-i18n="tb">انتخاب کارت (لاتاری واقعی) و شانس‌ها</span></h4>
+        <div class="grid cols-3">
+          <div class="group">
+            <label data-i18n="n">n (حوزه اصلی)</label>
+            <input id="tb_n" class="input" type="number" value="49" min="10"/>
+          </div>
+          <div class="group">
+            <label data-i18n="k">k (تعداد انتخاب)</label>
+            <input id="tb_k" class="input" type="number" value="6" min="1"/>
+          </div>
+          <div class="group">
+            <label data-i18n="price">قیمت بلیت (major)</label>
+            <input id="tb_price" class="input" type="number" value="2" step="0.01"/>
+          </div>
+        </div>
+        <div class="row" style="margin:8px 0;gap:6px">
+          <button id="tb_quick" class="btn">🎲 <span data-i18n="quickPick">انتخاب تصادفی</span></button>
+          <button id="tb_lock" class="btn">🔒 <span data-i18n="lock">قفل/باز</span></button>
+          <button id="tb_clear" class="btn">🧹 <span data-i18n="clear">پاک‌کردن</span></button>
+          <button id="tb_add" class="btn primary">➕ <span data-i18n="addTicket">افزودن بلیت به صف</span></button>
+          <button id="tb_clearQ" class="btn">🗑 <span data-i18n="clearQueue">پاک صف</span></button>
+          <span class="tag"><span data-i18n="queue">صف</span>: <b id="tb_qsize">0</b></span>
+        </div>
+        <div id="ticketGrid" class="ticket-grid" aria-label="ticket number grid"></div>
+        <div class="row" style="margin-top:10px">
+          <div class="group"><label data-i18n="simDraws"># قرعه‌کشی برای شبیه‌سازی</label><input id="tb_draws" class="input" type="number" value="50" min="1"></div>
+          <div class="group"><label data-i18n="maxQueue">حداکثر بلیت در صف</label><input id="tb_qmax" class="input" type="number" value="100" min="1"></div>
+          <div class="group" style="align-self:end">
+            <button id="tb_drawOne" class="btn">🎯 <span data-i18n="drawOne">قرعه‌کشی تک</span></button>
+            <button id="tb_sim" class="btn primary">🚀 <span data-i18n="runSim">اجرای شبیه‌سازی</span></button>
+            <button id="tb_resetStats" class="btn warn">♻ <span data-i18n="resetStats">ریست آمار</span></button>
+          </div>
+        </div>
+        <div class="grid cols-3" style="margin-top:8px">
+          <div class="card"><b data-i18n="ev">EV</b>: <span id="tb_ev">—</span><br><b data-i18n="roi">ROI</b>: <span id="tb_roi">—</span><br><b data-i18n="profProb">P(سود)</b>: <span id="tb_prof">—</span></div>
+          <div class="card"><div class="small" data-i18n="oddsFormula">P(m) = C(k,m)×C(n−k,k−m) / C(n,k)</div><div id="tb_odds" class="small"></div></div>
+          <div class="card"><div class="small" data-i18n="tbStats">آمار از شروع</div><div id="tb_stats" class="small"></div></div>
+        </div>
+        <div class="card" style="margin-top:8px"><div class="small" data-i18n="history">تاریخچه</div><div id="tb_hist" class="log-viewport" style="height:180px"></div></div>
+      </div>
+    </section>
+
+    <!-- Dashboards -->
+    <section class="panel" aria-labelledby="dashTitle">
+      <h3 id="dashTitle" data-i18n="dash">نتایج</h3>
+      <div class="tabs" role="tablist" data-target="dash">
+        <button class="tab active" data-tab="simple" role="tab" aria-selected="true" data-i18n="simple">ساده</button>
+        <button class="tab" data-tab="advanced" role="tab" data-i18n="advanced">پیشرفته</button>
+      </div>
+      <div id="dash_simple">
+        <div class="kpis" id="kpis"></div>
+        <div class="row" style="margin:8px 0">
+          <span class="small" data-i18n="today">پیشرفت امروز</span>
+          <div class="progress" style="flex:1"><i id="progToday"></i></div>
+        </div>
+        <div class="card"><canvas id="plCanvas" class="canvas" aria-label="P/L"></canvas></div>
+        <div class="card" style="margin-top:8px">
+          <div class="row" style="justify-content:space-between">
+            <div class="small" data-i18n="miniLog">مینی لاگ</div>
+            <div class="row">
+              <label class="switch small"><input id="miniWinsOnly" type="checkbox"/> <span data-i18n="winsOnly">فقط برد</span></label>
+            </div>
+          </div>
+          <div id="miniLog" class="log-viewport" style="height:180px"></div>
+        </div>
+      </div>
+      <div id="dash_advanced" class="hide">
+        <div class="grid cols-3">
+          <div class="card"><canvas id="roiCanvas" class="canvas" aria-label="ROI"></canvas></div>
+          <div class="card"><canvas id="dailyCanvas" class="canvas" aria-label="Daily"></canvas></div>
+          <div class="card"><canvas id="hitCanvas" class="canvas" aria-label="Hits"></canvas></div>
+        </div>
+        <div class="card" style="margin-top:8px">
+          <div class="row" style="justify-content:space-between">
+            <div class="small" data-i18n="fullLog">لاگ کامل</div>
+            <div class="row">
+              <input id="logSearch" class="input" placeholder="search..."/>
+              <select id="logType" class="input"><option value="all">all</option><option value="jackpot">jackpot</option><option value="small">small</option><option value="loss">loss</option></select>
+              <input id="logPLMin" class="input" type="number" placeholder=">= P/L (minor)" style="width:150px"/>
+            </div>
+          </div>
+          <div id="logView" class="log-viewport" role="table" aria-label="virtualized log"><div id="logSlice"></div></div>
+        </div>
+      </div>
+    </section>
+
+    
+    <footer class="footer">© Lottery Simulator — FA/EN • RTL/LTR • Dual-Currency • Web Worker • IndexedDB</footer>
+  </div>
+
+  <!-- Currency Modal -->
+  <div id="curModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="curTitle">
+    <div class="dialog">
+      <h3 id="curTitle" data-i18n="currency">ارز</h3>
+      <div class="grid cols-3">
+        <div class="group"><label>Base code</label><input id="c_base_code" class="input" value="USD"></div>
+        <div class="group"><label>Base sym</label><input id="c_base_sym" class="input" value="$"></div>
+        <div class="group"><label>Base minor</label><input id="c_base_minor" class="input" type="number" value="100"></div>
+        <div class="group"><label>Sec code</label><input id="c_sec_code" class="input" value="IRR"></div>
+        <div class="group"><label>Sec sym</label><input id="c_sec_sym" class="input" value="﷼"></div>
+        <div class="group"><label>Sec minor</label><input id="c_sec_minor" class="input" type="number" value="1"></div>
+        <div class="group"><label>Rate (1 base = ? sec)</label><input id="c_rate" class="input" type="number" value="580000" step="0.0001"></div>
+        <div class="group"><label>Show both</label><select id="c_show" class="input"><option>true</option><option>false</option></select></div>
+      </div>
+      <div class="row" style="margin-top:8px;justify-content:flex-end">
+        <button id="curSave" class="btn primary" data-i18n="save">ذخیره</button>
+        <button id="curClose" class="btn" data-i18n="close">بستن</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div id="helpModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="dialog">
+      <h3 id="helpTitle" data-i18n="help">راهنما</h3>
+      <div class="small" id="helpBody"></div>
+      <div class="row" style="margin-top:8px;justify-content:flex-end">
+        <button id="helpClose" class="btn" data-i18n="close">بستن</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+<script>
+(() => {
+  // ========= Utilities =========
+  const $ = (q,root=document) => root.querySelector(q);
+  const $$ = (q,root=document) => Array.from(root.querySelectorAll(q));
+  const clamp = (v,mi,ma)=>Math.max(mi,Math.min(ma,v));
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+  const fmtInt = (n)=>new Intl.NumberFormat().format(n|0);
+  const uid = ()=>Math.random().toString(36).slice(2,10);
+
+  // ========= i18n =========
+  const I18N = {
+    en:{
+      title:"Advanced Lottery Simulator",
+      theme:"Theme",
+      lang:"FA / EN",
+      dir:"RTL / LTR",
+      currency:"Currency",
+      help:"Help",
+      run:"Run Controls",
+      stopOnJackpot:"Stop on Jackpot",
+      start:"Start/Resume",
+      pause:"Pause/Resume",
+      reset:"Reset stats/log",
+      quick:"Quick Controls",
+      preset:"Preset",
+      ticketPrice:"Ticket Price (minor)",
+      tpd:"Tickets/Day", total:"Total Tickets", batch:"Batch", uiDelay:"UI Delay",
+      logMode:"Log Mode", engine:"Engine", quickHelp:"Tip: Larger batch + smaller delay ⇒ faster but hotter.",
+      targetCurrency:"Target & Currency", roll:"Roll Random Target",
+      settings:"Settings", tabGame:"Game", tabTarget:"Target", tabPerf:"Daily & Performance", tabFilters:"Filters",
+      prizeMap:"Prize Map", prizeHelp:"Format m[,b]=JACKPOT|FREE_PLAY|<minor>", dailyRandom:"Random Daily", manual:"Manual Target", manualHint:"comma numbers; optional bonus=",
+      filtersNote:"Filters constrain sample space; draws stay uniform.",
+      dash:"Results", simple:"Simple", advanced:"Advanced", today:"Progress Today", miniLog:"Mini Log", winsOnly:"Wins only", fullLog:"Full Log",
+      tb:"Real Card Selection & Odds", n:"n (main pool)", k:"k (picks)", price:"Ticket price (major)", quickPick:"Quick Pick", lock:"Lock/Unlock", clear:"Clear", addTicket:"Add Ticket", clearQueue:"Clear queue", queue:"Queue",
+      simDraws:"# draws to simulate", maxQueue:"Max queue", drawOne:"Single draw", runSim:"Run simulation", resetStats:"Reset stats", ev:"EV", roi:"ROI", profProb:"Profit prob", oddsFormula:"P(m)=C(k,m)C(n−k,k−m)/C(n,k)", tbStats:"Stats since start", history:"History",
+      save:"Save", close:"Close"
+    },
+    fa:{
+      title:"شبیه‌ساز پیشرفته لاتاری",
+      theme:"تم",
+      lang:"FA / EN",
+      dir:"RTL / LTR",
+      currency:"ارز",
+      help:"راهنما",
+      run:"کنترل اجرا",
+      stopOnJackpot:"ایست روی جکپات",
+      start:"شروع/ادامه",
+      pause:"مکث/ادامه",
+      reset:"ریست آمار/لاگ",
+      quick:"کنترل‌های سریع",
+      preset:"پریست",
+      ticketPrice:"قیمت بلیت (minor)",
+      tpd:"بلیت/روز", total:"کل بلیت", batch:"Batch", uiDelay:"تاخیر UI",
+      logMode:"حالت لاگ", engine:"موتور", quickHelp:"نکته: Batch بزرگ + Delay کم ⇒ سرعت بیشتر ولی مصرف CPU بالاتر.",
+      targetCurrency:"هدف و ارز", roll:"هدف تصادفی",
+      settings:"تنظیمات", tabGame:"بازی", tabTarget:"هدف", tabPerf:"عملکرد/روزانه", tabFilters:"فیلترها",
+      prizeMap:"نقشه جوایز", prizeHelp:"فرمت m[,b]=JACKPOT|FREE_PLAY|<minor>", dailyRandom:"تصادفی روزانه", manual:"هدف دستی", manualHint:"اعداد با کاما؛ bonus= اختیاری",
+      filtersNote:"فیلترها فضای نمونه را محدود می‌کنند؛ قرعه‌کشی یکنواخت می‌ماند.",
+      dash:"نتایج", simple:"ساده", advanced:"پیشرفته", today:"پیشرفت امروز", miniLog:"مینی لاگ", winsOnly:"فقط برد", fullLog:"لاگ کامل",
+      tb:"انتخاب کارت (لاتاری واقعی) و شانس‌ها", n:"n (حوزه اصلی)", k:"k (تعداد انتخاب)", price:"قیمت بلیت (major)", quickPick:"انتخاب تصادفی", lock:"قفل/باز", clear:"پاک‌کردن", addTicket:"افزودن بلیت", clearQueue:"پاک صف", queue:"صف",
+      simDraws:"# قرعه‌کشی برای شبیه‌سازی", maxQueue:"حداکثر بلیت در صف", drawOne:"قرعه‌کشی تک", runSim:"اجرای شبیه‌سازی", resetStats:"ریست آمار", ev:"EV", roi:"ROI", profProb:"احتمال سود", oddsFormula:"P(m)=C(k,m)C(n−k,k−m)/C(n,k)", tbStats:"آمار از شروع", history:"تاریخچه",
+      save:"ذخیره", close:"بستن"
+    }
+  };
+  const state = {$1
+    runStartTs: 0,
+    autoStopped: false
+  };
+  const currency = Object.assign({
+    base:{code:'USD', sym:'$', minor:100},
+    sec:{code:'IRR', sym:'﷼', minor:1, rate:580000},
+    showDual:true
+  }, JSON.parse(localStorage.getItem('lsim.currency')||'null')||{});
+  const LS_KEYS = { settings:'lsim.settings', sessions:'lsim.sessions', locale:'lsim.locale', dir:'lsim.dir', currency:'lsim.currency' };
+
+  const lsLoad=(k,f)=>{ try{return JSON.parse(localStorage.getItem(k))??f}catch{return f} };
+  const lsSave=(k,v)=>{ try{localStorage.setItem(k,JSON.stringify(v))}catch{} };
+
+  const money = {
+    fmtBase(minor){ const m = currency.base.minor||100; const v=(minor||0)/m; return `${currency.base.sym}${v.toFixed(2)} ${currency.base.code}` },
+    fmtDual(minor){ if(!currency.showDual) return money.fmtBase(minor); const s=money.fmtBase(minor); const r=currency.sec.rate||1; const mv=(minor||0)*r; const v=mv/(currency.base.minor||100)*(currency.sec.minor||1); return `${s} <span class="badge-dual">(${currency.sec.sym}${v.toFixed(2)} ${currency.sec.code})</span>`; }
+  };
+
+  function toast(msg){ const t=document.createElement('div'); t.className='t'; t.innerHTML=msg; $('#toast').appendChild(t); setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateY(6px)'; }, 2500); setTimeout(()=>t.remove(), 3300); }
+
+  const DB = (()=>{
+    let db=null; const DB_NAME='lotto-db-v1', STORE='logs';
+    function open(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>{ const d=r.result; const s=d.createObjectStore(STORE,{keyPath:'k'}); s.createIndex('bySession','sessionId',{unique:false}); }; r.onsuccess=()=>{ db=r.result; res() }; r.onerror=e=>rej(e) }) }
+    async function putBatch(sessionId, rows){ if(!db) await open(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,'readwrite'); const st=tx.objectStore(STORE); rows.forEach(r=>{ st.put({k:`${sessionId}:${r.idx}`, sessionId, r}); }); tx.oncomplete=()=>res(); tx.onerror=e=>rej(e); }); }
+    async function clearSession(sessionId){ if(!db) await open(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,'readwrite'); const st=tx.objectStore(STORE); const idx=st.index('bySession'); const req=idx.openCursor(IDBKeyRange.only(sessionId)); req.onsuccess=()=>{ const c=req.result; if(c){ st.delete(c.primaryKey); c.continue(); } else res(); }; req.onerror=e=>rej(e); }); }
+    async function page(sessionId, offset, limit, filters){ if(!db) await open(); const out=[]; const {type='all', plMin=-Infinity, q=''}=filters||{}; return new Promise((res,rej)=>{ const tx=db.transaction(STORE,'readonly'); const st=tx.objectStore(STORE); const idx=st.index('bySession'); let skipped=0; const req=idx.openCursor(IDBKeyRange.only(sessionId)); req.onsuccess=()=>{ const c=req.result; if(!c){ res(out); return } const row=c.value.r; const okType = type==='all' || row.type===type || (type==='small' && row.type==='small');
+ const okPL = (row.prize-row.cost) >= (plMin||-Infinity); const okQ = q? ((''+row.idx).includes(q) || (''+row.type).includes(q) ):true; if(okType&&okPL&&okQ){ if(skipped<offset){ skipped++; } else if(out.length<limit){ out.push(row); } }
+ c.continue(); };
+ req.onerror=e=>rej(e);
+ }); }
+    async function exportCSV(sessionId, onChunk){ if(!db) await open(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,'readonly'); const st=tx.objectStore(STORE); const idx=st.index('bySession'); const req=idx.openCursor(IDBKeyRange.only(sessionId)); const te = new TextEncoder(); let buf=[]; const push=(s)=>{ buf.push(te.encode(s)); if(buf.length>=64){ onChunk(new Blob(buf,{type:'text/csv'})); buf.length=0; } };
+      push('idx,type,matches,bonus,paid_minor,pl_minor,day,time\n');
+      req.onsuccess=()=>{ const c=req.result; if(c){ const r=c.value.r; const pl=(r.prize-r.cost); push(`${r.idx},${r.type||''},${r.matches|0},${r.bonus?1:0},${r.prize|0},${pl|0},${r.day|0},${r.time|0}\n`); c.continue(); } else { if(buf.length) onChunk(new Blob(buf,{type:'text/csv'})); res(); } };
+      req.onerror=e=>rej(e);
+    }); }
+    return {open, putBatch, clearSession, page, exportCSV};
+  })();
+
+  function drawLine(canvas, series, {isMoney=false,labelLast=true}={}){
+    const ctx=canvas.getContext('2d'); const w=canvas.width=canvas.clientWidth*devicePixelRatio; const h=canvas.height=canvas.clientHeight*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+    if(!series.length){ ctx.fillStyle='rgba(127,127,127,.3)'; ctx.fillText('—',10,20); return }
+    const maxPts=Math.max(100, Math.floor(canvas.clientWidth)); const step=Math.ceil(series.length/maxPts);
+    const pts=series.filter((_,i)=>i%step===0);
+    const xs=pts.map(p=>p[0]); const ys=pts.map(p=>p[1]);
+    const minX=Math.min(...xs), maxX=Math.max(...xs); const minY=Math.min(...ys,0), maxY=Math.max(...ys,0);
+    const pad=12; const W=canvas.clientWidth-2*pad, H=canvas.clientHeight-2*pad;
+    const sx=(x)=> pad + (W)*( (x-minX)/(Math.max(1,maxX-minX)) );
+    const sy=(y)=> pad + H - (H)*( (y-minY)/(Math.max(1,maxY-minY)) );
+    if(minY<0 && maxY>0){ ctx.strokeStyle='rgba(255,80,80,.5)'; ctx.beginPath(); ctx.moveTo(pad, sy(0)); ctx.lineTo(pad+W, sy(0)); ctx.stroke(); }
+    ctx.strokeStyle='rgba(0,200,255,.9)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(sx(pts[0][0]), sy(pts[0][1])); for(let i=1;i<pts.length;i++){ ctx.lineTo(sx(pts[i][0]), sy(pts[i][1])); } ctx.stroke();
+    if(labelLast){ const last=pts[pts.length-1]; ctx.fillStyle='rgba(0,255,200,.9)'; const x=sx(last[0]), y=sy(last[1]); ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill(); ctx.fillStyle='var(--text)'; const tx=(isMoney? money.fmtBase(last[1]): last[1].toFixed(2)); ctx.fillText(tx, Math.min(x+6, canvas.clientWidth-120), Math.max(12, y-6)); }
+  }
+  function drawBars(canvas, series, {zeroMid=true}={}){
+    const ctx=canvas.getContext('2d'); const w=canvas.width=canvas.clientWidth*devicePixelRatio; const h=canvas.height=canvas.clientHeight*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+    if(!series.length) return; const pad=12; const H=canvas.clientHeight-2*pad; const W=canvas.clientWidth-2*pad; const bw=Math.max(2, Math.floor(W/series.length)-2);
+    let min=0, max=0; if(zeroMid){ const ys=series.map(v=>v); min=Math.min(0,...ys); max=Math.max(0,...ys); }
+    const sy=(y)=> pad + H - (H)*( (y-min)/(Math.max(1,max-min)) );
+    ctx.fillStyle='rgba(17,167,255,.85)';
+    series.forEach((v,i)=>{ const x=pad + i*(bw+2); const y=sy(Math.max(0,v)); const y0=sy(0); const hh=Math.abs(y-y0); ctx.fillRect(x, Math.min(y,y0), bw, hh||1); });
+  }
+  function drawCategoryBars(canvas, counts, labels){ const series=labels.map(l=>counts[l]||0); drawBars(canvas, series, {zeroMid:false}); }
+
+  const workerBlob = new Blob([`(${function(){
+    let running=false, paused=false, idx=0, day=1, sessionStats=null, settings=null, target={main:[],bonus:null};
+    function safeCrypto(){ try{ return crypto }catch{ return null } }
+    function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; } }
+    let prng = mulberry32( Date.now() & 0xffffffff );
+    function rand(){ const c=safeCrypto(); if(c){ const u32=new Uint32Array(1); c.getRandomValues(u32); return u32[0]/2**32 } return prng(); }
+    function sampleUnique(n,k){ const map=new Map(); const res=[]; for(let i=0;i<k;i++){ const r=Math.floor(rand()* (n-i) ) + 1; const v=map.get(r) || r; const last=map.get(n-i) || (n-i); res.push(v); map.set(r,last); } return res.sort((a,b)=>a-b); }
+    function matchesCount(a,b){ let i=0,j=0,c=0; while(i<a.length && j<b.length){ if(a[i]===b[j]){ c++; i++; j++; } else if(a[i]<b[j]) i++; else j++; } return c; }
+    function parsePrizeMap(s){ const map=new Map(); (s||'').split(/\n+/).map(x=>x.trim()).filter(Boolean).forEach(line=>{ const [k,v]=line.split('='); map.set(k.trim(), (v||'0').trim()); }); return map }
+    function prizeFor(m,bonus, pmap){ const key = bonus? `${m},1`: `${m}`; const v = pmap.get(key) || '0'; return v }
+    function resetStats(){ sessionStats={ tickets:0, days:1, jackpots:0, spent:0, paid:0, net:0, roi:0 }; day=1; idx=0; }
+
+    async function loop(){ running=true; paused=false; postMessage({t:'state', running, paused}); let lastRateT=performance.now(), lastIdx=idx;
+      while(running){ if(paused){ await new Promise(r=>setTimeout(r,50)); continue }
+        const tBatch=(settings?.pricing?.batchSize)|0 || 1000; const rows=[]; const ticketPrice = (settings?.pricing?.ticketPrice)|0 || 200; const tpd=(settings?.pricing?.ticketsPerDay)|0 || 1000; const pmap=parsePrizeMap(settings?.prizeMap||'');
+        const engine=settings?.engine||'full'; const param=settings?.param||{}; const total=(settings?.pricing?.totalTickets)|0 || 0; const yieldMs=(settings?.pricing?.uiDelay)|0 || 16; const adaptHidden=(settings?.cfg?.hidden?2:1);
+        const batch = Math.max(10, Math.floor(tBatch/ adaptHidden ));
+        for(let i=0;i<batch;i++){
+          if(total && idx>=total){ running=false; break }
+          idx++; sessionStats.tickets++; if(sessionStats.tickets%tpd===0){ day++; if(settings?.target?.dailyRandom){ const main = sampleUnique(settings.game.maxMain, settings.game.mainCount); const bonus = settings.game.hasBonus? (Math.floor(rand()*settings.game.maxBonus)+1): null; target={main, bonus}; } sessionStats.days=day; }
+          sessionStats.spent += ticketPrice; let prize=0, type='loss', bonusHit=false, m=0;
+          if(engine==='param'){
+            const probN=param.probN||1e6, smallN=param.smallN||5000, jackpotX=param.jackpotX||1e6, smallHitX=param.smallHitX||5;
+            if(rand()<1/probN){ prize = Math.floor(jackpotX * ticketPrice); type='jackpot'; m=6; }
+            else if(rand()<1/smallN){ prize = Math.floor(smallHitX * ticketPrice); type='small'; m=1; }
+            else { prize=0; type='loss'; m=0; }
+          } else {
+            const main = sampleUnique(settings.game.maxMain, settings.game.mainCount);
+            let b=null; if(settings.game.hasBonus){ b = Math.floor(rand()*settings.game.maxBonus)+1; bonusHit = (settings.target?.dailyBonus? (b===target.bonus):false); }
+            m = matchesCount(main, target.main || []); const pv = prizeFor(m, bonusHit, pmap);
+            if(pv==='JACKPOT'){ prize = ticketPrice*1000000; type='jackpot'; }
+            else if(pv==='FREE_PLAY'){ prize = ticketPrice; type='small'; }
+            else { prize = (parseInt(pv,10)||0); if(prize>0) type='small'; }
+          }
+          if(type==='jackpot') sessionStats.jackpots++;
+          sessionStats.paid += prize; sessionStats.net = sessionStats.paid - sessionStats.spent; sessionStats.roi = sessionStats.spent? (sessionStats.paid/sessionStats.spent) : 0;
+          rows.push({ idx, matches:m, bonus:bonusHit, prize: prize|0, cost: ticketPrice|0, time: Date.now(), day, type});
+          if(settings?.cfg?.stopOnJackpot && type==='jackpot'){ running=false; break; }
+        }
+        const dt=performance.now()-lastRateT; let rate=0; if(dt>400){ rate = (idx-lastIdx)/(dt/1000); lastIdx=idx; lastRateT=performance.now(); }
+        postMessage({t:'tick', rows, stats:sessionStats, delta:{paid:0,spent:0}, rate: rate||0 });
+        if(!running) break;
+        await new Promise(r=>setTimeout(r, yieldMs ));
+      }
+      postMessage({t:'state', running:false, paused});
+    }
+
+    onmessage = (e)=>{
+      const d=e.data; if(d.t==='settings'){ settings=d.settings; if(settings?.param?.rngSeed){ const seed=(settings.param.rngSeed>>>0)||Date.now(); prng = mulberry32(seed); }
+        if(settings?.target?.dailyRandom && (!target.main.length)){
+          const main = sampleUnique(settings.game.maxMain, settings.game.mainCount); const bonus = settings.game.hasBonus? (Math.floor(rand()*settings.game.maxBonus)+1): null; target={main, bonus};
+        }
+      }
+      else if(d.t==='target'){ target=d.target||target; }
+      else if(d.t==='cfg'){ settings = settings||{}; settings.cfg = {...(settings.cfg||{}), ...(d.stopOnJackpot!=null?{stopOnJackpot:d.stopOnJackpot}:{}) , ...(d.hidden!=null?{hidden:d.hidden}:{})}; }
+      else if(d.t==='start'){ if(!sessionStats) resetStats(); if(!running){ running=true; paused=false; loop(); } }
+      else if(d.t==='pause'){ paused=!paused; postMessage({t:'state', running, paused}); }
+      else if(d.t==='reset'){ resetStats(); postMessage({t:'reset', stats:sessionStats}); }
+      else if(d.t==='stop'){ running=false; paused=false; postMessage({t:'state', running:false, paused:false}); }
+    }
+  }.toString()})()`], {type:'text/javascript'});
+  const worker = new Worker(URL.createObjectURL(workerBlob));
+  document.addEventListener('visibilitychange', ()=>{ worker.postMessage({t:'cfg', hidden:document.hidden}); });
+  const postToWorker = (m)=>worker.postMessage(m);
+
+  function defaultSettings(){
+    return {
+      game:{ maxMain:49, mainCount:6, hasBonus:true, maxBonus:10 },
+      target:{ dailyRandom:true, dailyBonus:true },
+      perf:{ logCap:50000, chartDelay:250, chartTickStep:800 },
+      log:{ mode:'wins' },
+      pricing:{ ticketPrice: +$('#inpPrice').value || 200, ticketsPerDay:+$('#inpTPD').value||1000, totalTickets:+$('#inpTotal').value||0, batchSize:+$('#inpBatch').value||1000, uiDelay:+$('#inpDelay').value||16 },
+      filters:{ rangeMode:'off', ranges:'', include:'', exclude:'', evenOdd:-1, maxConsec:0, sumMin:0, sumMax:0 },
+      prizeMap: $('#s_prizeMap').value.trim(),
+      engine: $('#selEngine').value,
+      param:{ probN:1e6, jackpotX:1e6, smallN:5000, smallHitX:5, rngSeed:0 },
+      cfg:{ stopOnJackpot: $('#chkStopJP').checked }
+    }
+  }
+
+  function applySettingsToUI(){ const S=state.settings; $('#s_maxMain').value=S.game.maxMain; $('#s_mainCount').value=S.game.mainCount; $('#s_hasBonus').value=String(S.game.hasBonus); $('#s_maxBonus').value=S.game.maxBonus; $('#t_dailyRand').value=String(S.target.dailyRandom); $('#t_dailyBonus').value=String(S.target.dailyBonus); $('#s_prizeMap').value=S.prizeMap; $('#p_logCap').value=S.perf.logCap; $('#p_chartDelay').value=S.perf.chartDelay; $('#p_chartStep').value=S.perf.chartTickStep; $('#inpPrice').value=S.pricing.ticketPrice; $('#inpTPD').value=S.pricing.ticketsPerDay; $('#inpTotal').value=S.pricing.totalTickets; $('#inpBatch').value=S.pricing.batchSize; $('#inpDelay').value=S.pricing.uiDelay; $('#selEngine').value=S.engine; $('#chkStopJP').checked=S.cfg.stopOnJackpot; }
+  function readSettingsFromUI(){ const s=state.settings; s.game.maxMain=+$('#s_maxMain').value; s.game.mainCount=+$('#s_mainCount').value; s.game.hasBonus=$('#s_hasBonus').value==='true'; s.game.maxBonus=+$('#s_maxBonus').value; s.target.dailyRandom=$('#t_dailyRand').value==='true'; s.target.dailyBonus=$('#t_dailyBonus').value==='true'; s.prizeMap=$('#s_prizeMap').value.trim(); s.perf.logCap=+$('#p_logCap').value; s.perf.chartDelay=+$('#p_chartDelay').value; s.perf.chartTickStep=+$('#p_chartStep').value; s.pricing.ticketPrice=+$('#inpPrice').value; s.pricing.ticketsPerDay=+$('#inpTPD').value; s.pricing.totalTickets=+$('#inpTotal').value; s.pricing.batchSize=+$('#inpBatch').value; s.pricing.uiDelay=+$('#inpDelay').value; s.engine=$('#selEngine').value; s.cfg.stopOnJackpot=$('#chkStopJP').checked; return s; }
+
+  function newSession(){ state.sessionId = uid(); $('#sessionChip').textContent = 'Session '+state.sessionId; const sessions = lsLoad(LS_KEYS.sessions, []); sessions.unshift({id:state.sessionId, ts:Date.now(), stats:state.stats}); lsSave(LS_KEYS.sessions, sessions.slice(0,20)); }
+
+  function pushMini(rows){ const cap=state.miniCap; if(!rows||!rows.length) return; state.miniLog.push(...rows); if(state.miniLog.length>cap) state.miniLog.splice(0, state.miniLog.length-cap); renderMini(); }
+  function rowHtml(r){ const pl=r.prize-r.cost; const winsOnly = $('#miniWinsOnly').checked; if(winsOnly && pl<=0) return ''; return `<div class="log-row" role="row"><div>#${r.idx}</div><div>${r.type||''}</div><div>${r.matches}${r.bonus?' +B':''}</div><div>${money.fmtBase(r.prize)}</div><div>${r.day||1}</div><div>${new Date(r.time).toLocaleTimeString()}</div></div>`; }
+  function renderMini(){ const el=$('#miniLog'); el.innerHTML = state.miniLog.slice(-300).map(r=>rowHtml(r)).join(''); }
+
+  function renderKPIs(){ const g=$('#kpis'); const s=state.stats; const k = (lbl,val,kind) => `<div class="kpi"><div class="label">${lbl}</div><div class="value ${kind||''}">${val}</div></div>`;
+    g.innerHTML = [
+      k('Tickets', fmtInt(s.tickets)),
+      k('Days', fmtInt(s.days)),
+      k('Jackpots', fmtInt(s.jackpots)),
+      k('Spent', money.fmtBase(s.spent)),
+      k('Paid', money.fmtBase(s.paid)),
+      k('Net', `<span class="${s.net>=0?'pos':'neg'}">${money.fmtBase(s.net)}</span>`)
+    ].join('');
+    const tpd=state.settings.pricing.ticketsPerDay||1; const today= s.tickets % tpd; $('#progToday').style.width = clamp( (today/tpd)*100, 0, 100)+'%';
+  }
+  function setRunButtons(running, paused){ const bs=$('#btnStart'), bp=$('#btnPause'); if(!bs||!bp) return; if(running){ bs.disabled=true; bp.disabled=false; bp.innerHTML = paused? '▶ Resume (Space)' : '⏸ Pause (Space)'; } else { bs.disabled=false; bp.disabled=true; bp.innerHTML='⏸ Pause (Space)'; } }
+  function checkAutoStop(){ try{ const lim=state.settings && state.settings.cfg && state.settings.cfg.limit; if(!lim||state.autoStopped) return; if(lim.kind==='tickets' && state.stats.tickets>=lim.value){ postToWorker({t:'stop'}); state.autoStopped=true; toast('⛔ Auto-stopped: tickets'); }
+    else if(lim.kind==='days' && state.stats.days>=lim.value){ postToWorker({t:'stop'}); state.autoStopped=true; toast('⛔ Auto-stopped: days'); }
+    else if(lim.kind==='minutes' && state.runStartTs && ((Date.now()-state.runStartTs)/60000)>=lim.value){ postToWorker({t:'stop'}); state.autoStopped=true; toast('⛔ Auto-stopped: minutes'); } }catch(e){} }
+  function ecoAdjust(rate){ try{ const eco=state.settings && state.settings.eco; if(!eco||!eco.enabled) return; const now=Date.now(); if(now-(eco.lastAdjust||0)<1000) return; eco.lastAdjust=now; const cap=eco.rateCap||25000; let changed=false; if((rate||0)>(cap*1.05)){ state.settings.pricing.uiDelay=Math.min((state.settings.pricing.uiDelay||16)+4,120); changed=true; } else if((rate||0)<cap*0.5){ state.settings.pricing.uiDelay=Math.max((state.settings.pricing.uiDelay||16)-2,4); changed=true; } if(changed){ lsSave(LS_KEYS.settings,state.settings); postToWorker({t:'settings', settings:state.settings}); const dly=document.getElementById('inpDelay'); dly && (dly.value=state.settings.pricing.uiDelay); } }catch(e){} }
+  function scheduleCharts(){ drawLine($('#plCanvas'), state.chart.pl, {isMoney:true,labelLast:true}); drawLine($('#roiCanvas'), state.chart.roi, {isMoney:false,labelLast:true}); const daily=state.chart.daily.map(d=> (d.paid-d.spent) ); drawBars($('#dailyCanvas'), daily, {zeroMid:true}); drawCategoryBars($('#hitCanvas'), state.chart.hits, ['jackpot','small','loss']); }
+
+  const ROW_H=28; let logOffset=0, logLimit=600, logLoading=false;
+  async function renderLog(reset=false){ if(reset){ $('#logSlice').innerHTML=''; logOffset=0; }
+    if(logLoading) return; logLoading=true; const filters={ q: $('#logSearch').value||'', type: $('#logType').value||'all', plMin: +($('#logPLMin').value||0) };
+    const rows = await DB.page(state.sessionId, logOffset, logLimit, filters); const frag=document.createDocumentFragment(); rows.forEach(r=>{ const div=document.createElement('div'); div.className='log-row'; const pl=r.prize-r.cost; div.innerHTML=`<div>#${r.idx}</div><div>${r.type}</div><div>${r.matches}${r.bonus?'+B':''}</div><div>${money.fmtBase(r.prize)} <span class="small">(${(pl>=0?'+':'')+pl})</span></div><div>${r.day}</div><div>${new Date(r.time).toLocaleTimeString()}</div>`; frag.appendChild(div); }); $('#logSlice').appendChild(frag); logOffset += rows.length; logLoading=false; }
+  $('#logView').addEventListener('scroll', e=>{ const el=e.currentTarget; if(el.scrollTop + el.clientHeight + 200 >= el.scrollHeight){ renderLog(false); } });
+
+  function setTargetChips(main, bonus){ const el=$('#targetChips'); el.innerHTML=''; const mc=document.createElement('div'); mc.className='chips'; (main||[]).forEach(n=>{ const c=document.createElement('span'); c.className='target-chip'; c.textContent=n; mc.appendChild(c); }); el.appendChild(mc); if(bonus){ const b=document.createElement('span'); b.className='target-chip'; b.textContent='B:'+bonus; el.appendChild(b); } }
+
+  worker.onmessage = async (e)=>{
+    const d=e.data; if(d.t==='state'){ $('#status').className='status '+(d.running? (d.paused?'paused':'running') : 'idle'); $('#status').textContent = d.running? (d.paused? 'paused' : 'idle'?'idle':'running') : 'idle'; if(typeof setRunButtons==='function') setRunButtons(d.running, d.paused); }
+    if(d.t==='reset'){ state.stats = d.stats; state.chart.pl.length=0; state.chart.roi.length=0; state.chart.daily.length=0; state.chart.hits={jackpot:0, small:0, loss:0}; state.miniLog.length=0; renderKPIs(); scheduleCharts(); toast('✅ Reset'); await DB.clearSession(state.sessionId); $('#logSlice').innerHTML=''; return }
+    if(d.t==='tick'){
+      state.stats = d.stats; renderKPIs(); const rate=Math.round(d.rate||0); const rate=Math.round(d.rate||0); const elapsedMin = (window.state && state.runStartTs)? ((Date.now()-state.runStartTs)/60000).toFixed(2):'0.00'; $('#runInfo').textContent = `rate ~ ${rate} t/s • ${elapsedMin} min`; if(typeof ecoAdjust==='function') ecoAdjust(rate); if(typeof checkAutoStop==='function') checkAutoStop();
+      const t=Date.now(); state.chart.pl.push([t, state.stats.net]); state.chart.roi.push([t, state.stats.roi]); if(state.chart.pl.length>2000){ state.chart.pl.splice(0, state.chart.pl.length-2000); state.chart.roi.splice(0, state.chart.roi.length-2000); }
+      const j=d.rows.filter(r=>r.type==='jackpot').length, s=d.rows.filter(r=>r.type==='small').length, l=d.rows.filter(r=>r.type==='loss').length; state.chart.hits.jackpot+=j; state.chart.hits.small+=s; state.chart.hits.loss+=l; scheduleCharts();
+      pushMini(d.rows); await DB.putBatch(state.sessionId, d.rows);
+    }
+  };
+
+  function start(){ readSettingsFromUI(); lsSave(LS_KEYS.settings, state.settings); postToWorker({t:'settings', settings:state.settings}); postToWorker({t:'cfg', stopOnJackpot:state.settings.cfg.stopOnJackpot}); postToWorker({t:'start'}); toast('▶ Start'); }
+  function pause(){ postToWorker({t:'pause'}); }
+  async function reset(){ postToWorker({t:'reset'}); await DB.clearSession(state.sessionId); }
+  async function exportCSV(){ const parts=[]; await DB.exportCSV(state.sessionId, blob=>parts.push(blob)); const out=new Blob(parts,{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(out); a.download=`lotto_${state.sessionId}.csv`; document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove(); toast('⬇ CSV exported'); }
+
+  function applyI18n(){ const dict=I18N[state.lang]||I18N.fa; $$('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(dict[k]) el.textContent=dict[k]; }); document.documentElement.lang=state.lang; }
+  function setDir(d){ document.documentElement.dir=d; state.dir=d; lsSave(LS_KEYS.dir,d); }
+  function setLang(l){ state.lang=l; lsSave(LS_KEYS.locale,l); applyI18n(); }
+  function toggleTheme(){ const root=document.documentElement; const cur=root.getAttribute('data-theme')||'dark'; const next= cur==='dark'?'light':'dark'; root.setAttribute('data-theme', next); state.theme=next; toast('🎨 '+next); }
+
+  function openCur(){ $('#c_base_code').value=currency.base.code; $('#c_base_sym').value=currency.base.sym; $('#c_base_minor').value=currency.base.minor; $('#c_sec_code').value=currency.sec.code; $('#c_sec_sym').value=currency.sec.sym; $('#c_sec_minor').value=currency.sec.minor; $('#c_rate').value=currency.sec.rate; $('#c_show').value=String(currency.showDual); $('#curModal').setAttribute('open',''); }
+  function closeCur(){ $('#curModal').removeAttribute('open'); }
+  function saveCur(){ currency.base.code=$('#c_base_code').value; currency.base.sym=$('#c_base_sym').value; currency.base.minor=+$('#c_base_minor').value||100; currency.sec.code=$('#c_sec_code').value; currency.sec.sym=$('#c_sec_sym').value; currency.sec.minor=+$('#c_sec_minor').value||1; currency.sec.rate=+$('#c_rate').value||1; currency.showDual=$('#c_show').value==='true'; lsSave(LS_KEYS.currency, currency); $('#dualBadge').innerHTML = currency.showDual? `💱 ${currency.base.code}⇄${currency.sec.code} @ ${currency.sec.rate}`: ''; toast('💱 currency saved'); closeCur(); renderKPIs(); renderMini(); }
+
+  function initTabs(){ $$('.tabs').forEach(tabbar=>{ const prefix = tabbar.getAttribute('data-target')||'tab'; const container = tabbar.parentElement; const panels = Array.from(container.querySelectorAll(`[id^="${prefix}_"]`)); tabbar.querySelectorAll('.tab').forEach(btn=>{ btn.addEventListener('click',()=>{ tabbar.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); btn.classList.add('active'); const tab=btn.getAttribute('data-tab'); panels.forEach(p=>p.classList.add('hide')); const panel = container.querySelector(`#${prefix}_${tab}`); panel&&panel.classList.remove('hide'); if(prefix==='dash' && tab==='advanced'){ renderLog(true); } }); }); }); }
+
+  function randomTarget(){ const n=state.settings.game.maxMain, k=state.settings.game.mainCount; const picks=[]; const pool=Array.from({length:n},(_,i)=>i+1); for(let i=0;i<k;i++){ const x=Math.floor(Math.random()*pool.length); picks.push(pool.splice(x,1)[0]); } picks.sort((a,b)=>a-b); const b = state.settings.game.hasBonus? (1+Math.floor(Math.random()*state.settings.game.maxBonus)) : null; return {main:picks, bonus:b}; }
+
+  const tb={ n:49, k:6, price:2, pick:new Set(), lock:new Set(), queue:[], stats:{spent:0, won:0, best:0, dist: {}, lastWin:0} };
+  function buildGrid(){ const g=$('#ticketGrid'); g.innerHTML=''; for(let i=1;i<=tb.n;i++){ const b=document.createElement('div'); b.className='ticket-num'; b.textContent=i; b.tabIndex=0; const select=()=>{ if(tb.lock.has(i)) return; if(tb.pick.has(i)){ tb.pick.delete(i); b.classList.remove('active'); } else { if(tb.pick.size>=tb.k){ toast('⚠️ به سقف k رسیدی'); return } tb.pick.add(i); b.classList.add('active'); } };
+      b.addEventListener('click', select); b.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); select(); } });
+      if(tb.lock.has(i)) b.classList.add('locked'); if(tb.pick.has(i)) b.classList.add('active'); g.appendChild(b); }
+  }
+  function tbSyncFromInputs(){ tb.n=+$('#tb_n').value; tb.k=+$('#tb_k').value; tb.price=+$('#tb_price').value; buildGrid(); renderOdds(); renderTbStats(); }
+  function tbQuickPick(){ const available=[]; for(let i=1;i<=tb.n;i++){ if(tb.lock.has(i)||tb.pick.has(i)) continue; available.push(i); }
+    while(tb.pick.size<tb.k && available.length){ const x=Math.floor(Math.random()*available.length); tb.pick.add(available.splice(x,1)[0]); }
+    buildGrid(); }
+  function tbToggleLock(){ if(tb.pick.size===0){ tb.lock.clear(); buildGrid(); return } tb.pick.forEach(n=>{ if(tb.lock.has(n)) tb.lock.delete(n); else tb.lock.add(n); }); tb.pick.clear(); buildGrid(); }
+  function tbClear(){ tb.pick.clear(); tb.lock.clear(); buildGrid(); }
+  function tbAddTicket(){ if(tb.queue.length>=+$('#tb_qmax').value){ toast('⚠️ صف پر است'); return } if(tb.pick.size!==tb.k){ toast('⚠️ باید '+tb.k+' عدد انتخاب شود'); return } tb.queue.push(Array.from(tb.pick).sort((a,b)=>a-b)); tb.pick.clear(); $('#tb_qsize').textContent=tb.queue.length; buildGrid(); toast('➕ بلیت اضافه شد'); }
+  function tbClearQ(){ tb.queue.length=0; $('#tb_qsize').textContent='0'; toast('🗑 صف پاک شد'); }
+
+  function nCkBig(n,k){ if(k<0||k>n) return 0n; k=Math.min(k,n-k); let num=1n, den=1n; for(let i=1n;i<=BigInt(k);i++){ num*=BigInt(n)-i+1n; den*=i; } return num/den; }
+  function renderOdds(){ const n=tb.n, k=tb.k; const denom = Number(nCkBig(n,k)); const rows=[]; let ev=0, profitProb=0; for(let m=0;m<=k;m++){ const ways = Number( nCkBig(k,m) * nCkBig(n-k, k-m) ); const p = ways/denom; const payout = (m===k? 2000000 : (m===5? 2000 : m===4?50: m===3?5:0)); ev += payout*p; if(payout >= tb.price) profitProb += p; rows.push(`m=${m}: ${(p*100).toFixed(6)}% | prize=${payout}`); }
+    $('#tb_odds').innerHTML = rows.join('<br>'); $('#tb_ev').textContent = ev.toFixed(4); const roi = (ev/tb.price); $('#tb_roi').textContent = roi.toFixed(4); $('#tb_prof').textContent = (profitProb*100).toFixed(4)+'%'; }
+  function tbEvalTicket(win, ticket){ let i=0,j=0,c=0; while(i<win.length&&j<ticket.length){ if(win[i]===ticket[j]){ c++; i++; j++; } else if(win[i]<ticket[j]) i++; else j++; } const payout = (c===tb.k?2000000: c===5?2000: c===4?50: c===3?5:0); return {match:c, prize:payout}; }
+  function tbDrawOnce(){ const pool=Array.from({length:tb.n},(_,i)=>i+1); const win=[]; for(let i=0;i<tb.k;i++){ const x=Math.floor(Math.random()*pool.length); win.push(pool.splice(x,1)[0]); } win.sort((a,b)=>a-b); const results=tb.queue.map(q=>{ const r=tbEvalTicket(win,q); return {ticket:q, match:r.match, prize:r.prize}; }); const spent = tb.queue.length*tb.price; const paid = results.reduce((a,b)=>a+b.prize,0); tb.stats.spent += spent; tb.stats.won += paid; tb.stats.best = Math.max(tb.stats.best, ...results.map(r=>r.match)); tb.stats.lastWin = paid; results.forEach(r=>{ tb.stats.dist[r.match]=(tb.stats.dist[r.match]||0)+1; }); $('#tb_hist').innerHTML = `<div class="small">win: ${win.join(', ')}</div>` + results.map((r,i)=>`<div class="small">#${i+1} | ${r.ticket.join(', ')} | m=${r.match} | ${r.prize}</div>`).join(''); renderTbStats(); }
+  async function tbSim(){ const draws=+$('#tb_draws').value||10; for(let i=0;i<draws;i++){ tbDrawOnce(); await sleep(10); }
+    toast('🚀 Simulation done'); }
+  function renderTbStats(){ $('#tb_stats').innerHTML = `spent=${tb.stats.spent} • won=${tb.stats.won} • net=${tb.stats.won-tb.stats.spent} • best=${tb.stats.best}`; }
+  // Prize editor helpers
+  function parsePrizeText(str){ const rows=[]; (str||'').split(/
++/).map(l=>l.trim()).filter(Boolean).forEach(line=>{ const [lhs,rhs]=line.split('='); if(!lhs) return; let m=0,b=false; if(lhs.includes(',')){ const [mm,bb]=lhs.split(','); m=parseInt(mm,10)||0; b=(parseInt(bb,10)||0)===1; } else { m=parseInt(lhs,10)||0; b=false; } const vStr=(rhs||'0').trim(); let type='VALUE', value=0; if(vStr==='JACKPOT'){ type='JACKPOT' } else if(vStr==='FREE_PLAY'){ type='FREE_PLAY' } else { value=parseInt(vStr,10)||0; } rows.push({m,b,type,value}); }); return rows; }
+  function prizeTextFromRows(rows){ return rows.map(r=> `${r.m}${r.b?',1':''}=` + (r.type==='JACKPOT'?'JACKPOT': r.type==='FREE_PLAY'?'FREE_PLAY': (r.value|0))).join('
+'); }
+  function renderPrizeEditor(rows){ const root=$('#peRows'); if(!root) return; root.innerHTML=''; rows.forEach((r,i)=>{ const row=document.createElement('div'); row.className='row'; row.innerHTML = `<label>m</label><input data-idx="${i}" data-k="m" class="input" type="number" value="${r.m}" style="width:80px"><label>+B</label><input data-idx="${i}" data-k="b" type="checkbox" ${r.b?'checked':''}><select data-idx="${i}" data-k="type" class="input"><option ${r.type==='JACKPOT'?'selected':''}>JACKPOT</option><option ${r.type==='FREE_PLAY'?'selected':''}>FREE_PLAY</option><option ${r.type==='VALUE'?'selected':''}>VALUE</option></select><input data-idx="${i}" data-k="value" class="input" type="number" value="${r.value||0}" style="width:120px"><button class="btn" data-idx="${i}" data-k="del">🗑</button>`; root.appendChild(row); }); root.onclick=null; root.onchange=null; root.addEventListener('change', onPeChange); root.addEventListener('click', onPeChangeOnce); }
+  let PRIZE_ROWS=[];
+  function onPeChange(e){ const el=e.target; const idx=+el.getAttribute('data-idx'); const k=el.getAttribute('data-k'); if(idx>=0){ if(k==='b') PRIZE_ROWS[idx].b=el.checked; else if(k==='m') PRIZE_ROWS[idx].m=+el.value; else if(k==='type') PRIZE_ROWS[idx].type=el.value; else if(k==='value') PRIZE_ROWS[idx].value=+el.value; } }
+  function onPeChangeOnce(e){ const el=e.target; if(el.getAttribute('data-k')==='del'){ const idx=+el.getAttribute('data-idx'); PRIZE_ROWS.splice(idx,1); renderPrizeEditor(PRIZE_ROWS); } }
+  function peParseFromText(){ PRIZE_ROWS = parsePrizeText($('#s_prizeMap').value); renderPrizeEditor(PRIZE_ROWS); toast('🔄 Parsed from text'); }
+  function peSyncToText(){ $('#s_prizeMap').value = prizeTextFromRows(PRIZE_ROWS); if(typeof readSettingsFromUI==='function'){ state.settings=readSettingsFromUI(); lsSave(LS_KEYS.settings,state.settings);} toast('💾 Prize map synced'); }
+
+  function buildHelp(){ return `
+  <b>RNG</b>: crypto.getRandomValues (fallback: seedable PRNG).<br>
+  <b>Performance</b>: Web Worker + batches + short yields; adaptive when tab hidden.<br>
+  <b>Dual-currency</b>: All math in base minor units. Secondary shown via your rate.<br>
+  <b>Shortcuts</b>: S (Start) • Space (Pause/Resume) • R (Reset) • E (Export CSV)<br>
+  <b>Known</b>: Hit distribution simplified; FREE_PLAY counts as ticket credit.
+  `; }
+
+  function demoSeed(){ const t=Date.now(); for(let i=0;i<40;i++){ state.chart.pl.push([t+i*200, (i-20)*2000]); state.chart.roi.push([t+i*200, (i-20)/20]); } }
+
+  function init(){
+    // Load settings
+    state.settings = lsLoad(LS_KEYS.settings, null) || defaultSettings(); applySettingsToUI();
+    // Session badge
+    state.sessionId = uid(); $('#sessionChip').textContent='Session '+state.sessionId;
+    // Currency badge
+    $('#dualBadge').innerHTML = currency.showDual? `💱 ${currency.base.code}⇄${currency.sec.code} @ ${currency.sec.rate}`: '';
+    // Language/Theme/Dir
+    document.documentElement.dir = state.dir; document.documentElement.setAttribute('data-theme', state.theme||'dark'); applyI18n();
+    // Seed charts
+    demoSeed(); scheduleCharts(); renderKPIs();
+
+    // Actions
+    $('#btnStart').onclick=start; $('#btnPause').onclick=pause; $('#btnReset').onclick=reset; $('#btnCsv').onclick=exportCSV;
+    $('#btnCurrency').onclick=openCur; $('#curClose').onclick=closeCur; $('#curSave').onclick=saveCur;
+    $('#btnHelp').onclick=()=>{ $('#helpBody').innerHTML=buildHelp(); $('#helpModal').setAttribute('open',''); }; $('#helpClose').onclick=()=>$('#helpModal').removeAttribute('open');
+    $('#btnTheme').onclick=toggleTheme; $('#btnLang').onclick=()=> setLang(state.lang==='fa'?'en':'fa'); $('#btnDir').onclick=()=> setDir(document.documentElement.dir==='rtl'?'ltr':'rtl');
+
+    // Prize editor init
+    try{ PRIZE_ROWS = parsePrizeText($('#s_prizeMap').value); renderPrizeEditor(PRIZE_ROWS); $('#peAdd') && ($('#peAdd').onclick=()=>{ PRIZE_ROWS.push({m:3,b:false,type:'VALUE',value:200}); renderPrizeEditor(PRIZE_ROWS); }); $('#peParse') && ($('#peParse').onclick=peParseFromText); $('#peSync') && ($('#peSync').onclick=peSyncToText); }catch(e){}
+
+    // New controls persist
+    ;['runLimitKind','runLimitVal','ecoMode','rateCap'].forEach(id=>{ const el=document.getElementById(id); el && el.addEventListener('change', ()=>{ if(typeof readSettingsFromUI==='function'){ state.settings=readSettingsFromUI(); lsSave(LS_KEYS.settings,state.settings);} }); });
+    // Keep limit & eco in sync (fallback if settings reader misses fields)
+    try{ setInterval(()=>{ const S=state.settings||(state.settings={}); S.cfg=S.cfg||{}; const kind=(document.getElementById('runLimitKind')||{}).value||'tickets'; const val=+(document.getElementById('runLimitVal')||{}).value||100000; S.cfg.limit={kind, value:val}; S.eco=S.eco||{}; S.eco.enabled=!!(document.getElementById('ecoMode')||{}).checked; S.eco.rateCap=+(document.getElementById('rateCap')||{}).value||25000; }, 1000);}catch(e){}
+
+    // Presets
+    $('#selPreset').onchange=()=>{ const v=$('#selPreset').value; if(v==='classic6'){ $('#s_maxMain').value=49; $('#s_mainCount').value=6; $('#s_hasBonus').value='true'; $('#s_maxBonus').value=10; $('#s_prizeMap').value=`6,1=JACKPOT\n6=5000000\n5,1=100000\n5=50000\n4,1=10000\n4=3000\n3,1=1000\n3=200\n2,1=FREE_PLAY`; $('#selEngine').value='full'; toast('✅ classic6 applied'); }
+      else if(v==='mini5'){ $('#s_maxMain').value=35; $('#s_mainCount').value=5; $('#s_hasBonus').value='false'; $('#s_maxBonus').value=0; $('#s_prizeMap').value=`5=JACKPOT\n4=100000\n3=500\n2=50`; $('#selEngine').value='full'; toast('✅ mini5 applied'); }
+      else { $('#selEngine').value='param'; const mp={ 'param-default':[1e6,1e6,5000,5], 'param-lucky':[5e5,2e6,3000,8], 'param-grind':[2e6,8e5,800,2] }[v]; state.settings.param={probN:mp[0],jackpotX:mp[1],smallN:mp[2],smallHitX:mp[3],rngSeed:0}; toast('✅ param preset'); }
+    };
+    // Save-on-change
+    ['inpPrice','inpTPD','inpTotal','inpBatch','inpDelay','s_maxMain','s_mainCount','s_hasBonus','s_maxBonus','t_dailyRand','t_dailyBonus','s_prizeMap','p_logCap','p_chartDelay','p_chartStep','selEngine','chkStopJP'].forEach(id=>{
+      const el=document.getElementById(id); el&&el.addEventListener('change',()=>{ readSettingsFromUI(); lsSave(LS_KEYS.settings,state.settings); });
+    });
+    // Target
+    $('#btnRollTarget').onclick=()=>{ const t=randomTarget(); setTargetChips(t.main,t.bonus); worker.postMessage({t:'target', target:t}); toast('🎲 target updated'); };
+    // Tabs
+    initTabs();
+    // Logs filters
+    ['logSearch','logType','logPLMin'].forEach(id=>{ const el=document.getElementById(id); el&&el.addEventListener('input',()=>renderLog(true)); });
+
+    // Ticket Builder events
+    $('#tb_n').onchange=$('#tb_k').onchange=$('#tb_price').onchange=tbSyncFromInputs;
+    $('#tb_quick').onclick=tbQuickPick; $('#tb_lock').onclick=tbToggleLock; $('#tb_clear').onclick=tbClear; $('#tb_add').onclick=tbAddTicket; $('#tb_clearQ').onclick=tbClearQ; $('#tb_drawOne').onclick=tbDrawOnce; $('#tb_sim').onclick=tbSim; $('#tb_resetStats').onclick=()=>{ tb.stats={spent:0,won:0,best:0,dist:{},lastWin:0}; $('#tb_hist').innerHTML=''; renderTbStats(); };
+    tbSyncFromInputs();
+
+    // Shortcuts (avoid when focusing inputs)
+    window.addEventListener('keydown', e=>{ if(e.target && ['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return; if(e.key.toLowerCase()==='s'){ start(); } else if(e.key===' '){ e.preventDefault(); pause(); } else if(e.key.toLowerCase()==='r'){ reset(); } else if(e.key.toLowerCase()==='e'){ exportCSV(); } });
+
+    // Session + worker boot
+    newSession(); state.settings = readSettingsFromUI(); lsSave(LS_KEYS.settings,state.settings); worker.postMessage({t:'settings', settings:state.settings});
+    // Initialize target once
+    const t=randomTarget(); setTargetChips(t.main,t.bonus); worker.postMessage({t:'target', target:t});
+  }
+
+  // boot
+  init();
+})();
+</script>
+</body>
+</html>

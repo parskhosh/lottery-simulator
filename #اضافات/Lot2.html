@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="fa">
+<head>
+<meta charset="utf-8" />
+<title>شبیه‌ساز لاتاری واقعی</title>
+<style>
+  body{background:#0e1625;color:#f5f5f5;font-family:system-ui;padding:20px;direction:rtl}
+  .box{background:#141d2f;padding:15px;border-radius:12px;max-width:800px;margin:auto}
+  input,select{padding:6px 10px;border-radius:6px;border:none;background:#1f2a40;color:#fff;margin-bottom:8px;width:100%}
+  label{display:block;margin-top:10px;color:#ccc}
+  button{padding:8px 16px;border:none;border-radius:8px;margin-top:8px;cursor:pointer;font-weight:bold}
+  button#start{background:#ffb400;color:#222}
+  button#stop{background:#333;color:#ccc}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px}
+  .stat{background:#1d2942;padding:10px;border-radius:8px;text-align:center}
+  .stat h3{font-size:13px;margin:0;color:#aaa}
+  .stat div{font-size:18px;font-weight:bold;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>🎲 شبیه‌ساز لاتاری (شانس مساوی برای هر عدد)</h2>
+
+  <label>بازه اعداد (۱ تا):</label>
+  <input type="number" id="maxNumber" value="35">
+
+  <label>تعداد اعداد هر بلیط:</label>
+  <input type="number" id="countPerTicket" value="5">
+
+  <label>حالت نتیجه لاتاری:</label>
+  <select id="targetMode">
+    <option value="random">انتخاب رندوم خودکار</option>
+    <option value="manual">ورودی دستی</option>
+  </select>
+
+  <label>اعداد هدف (اگر دستی، با کاما):</label>
+  <input type="text" id="targetInput" placeholder="مثلاً: 2,7,14,25,30">
+
+  <label>قیمت هر بلیط:</label>
+  <input type="number" id="ticketPrice" value="1000">
+
+  <label>جوایز:</label>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <input type="number" id="prize2" value="2000" placeholder="2تایی">
+    <input type="number" id="prize3" value="10000" placeholder="3تایی">
+    <input type="number" id="prize4" value="50000" placeholder="4تایی">
+    <input type="number" id="prize5" value="1000000" placeholder="5تایی (جک‌پات)">
+  </div>
+
+  <button id="setTarget">🎯 تولید نتیجه لاتاری</button>
+  <div id="targetDisplay" style="margin:8px 0;color:#ffd166"></div>
+
+  <button id="start">▶ شروع</button>
+  <button id="stop">⏹ توقف</button>
+
+  <div class="stats">
+    <div class="stat"><h3>بلیط‌ها</h3><div id="tickets">0</div></div>
+    <div class="stat"><h3>۲تایی</h3><div id="c2">0</div></div>
+    <div class="stat"><h3>۳تایی</h3><div id="c3">0</div></div>
+    <div class="stat"><h3>۴تایی</h3><div id="c4">0</div></div>
+    <div class="stat"><h3>۵تایی</h3><div id="c5">0</div></div>
+    <div class="stat"><h3>خرج‌شده</h3><div id="spent">0</div></div>
+    <div class="stat"><h3>پرداختی</h3><div id="paid">0</div></div>
+    <div class="stat"><h3>خالص</h3><div id="net">0</div></div>
+  </div>
+</div>
+
+<script>
+let running = false;
+let stats = {t:0,c2:0,c3:0,c4:0,c5:0,spent:0,paid:0};
+let target = new Set();
+
+function randInt(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+
+// الگوریتم انتخاب تصادفی بدون تکرار با احتمال دقیقاً مساوی
+function randomCombination(n,k){
+  const result = [];
+  const chosen = new Set();
+  while(result.length < k){
+    const r = randInt(1,n);
+    if(!chosen.has(r)){
+      chosen.add(r);
+      result.push(r);
+    }
+  }
+  return result;
+}
+
+function pickTarget(){
+  const mode = document.getElementById('targetMode').value;
+  const n = +document.getElementById('maxNumber').value;
+  const k = +document.getElementById('countPerTicket').value;
+  if(mode === 'manual'){
+    const arr = document.getElementById('targetInput').value.split(',')
+      .map(x=>parseInt(x.trim())).filter(x=>x>=1 && x<=n);
+    target = new Set(arr.slice(0,k));
+  } else {
+    target = new Set(randomCombination(n,k));
+  }
+  document.getElementById('targetDisplay').innerHTML =
+    '🎯 نتیجه لاتاری: ' + [...target].sort((a,b)=>a-b).join(', ');
+}
+
+function resetStats(){
+  stats = {t:0,c2:0,c3:0,c4:0,c5:0,spent:0,paid:0};
+  updateUI();
+}
+
+function match(ticket){
+  let c=0; for(let n of ticket) if(target.has(n)) c++;
+  return c;
+}
+
+function updateUI(){
+  document.getElementById('tickets').textContent = stats.t;
+  document.getElementById('c2').textContent = stats.c2;
+  document.getElementById('c3').textContent = stats.c3;
+  document.getElementById('c4').textContent = stats.c4;
+  document.getElementById('c5').textContent = stats.c5;
+  document.getElementById('spent').textContent = stats.spent.toLocaleString();
+  document.getElementById('paid').textContent = stats.paid.toLocaleString();
+  const net = stats.paid - stats.spent;
+  const netEl = document.getElementById('net');
+  netEl.textContent = net.toLocaleString();
+  netEl.style.color = net>=0 ? '#8aff8a' : '#ff8080';
+}
+
+async function start(){
+  if(running) return;
+  running = true;
+  const n = +document.getElementById('maxNumber').value;
+  const k = +document.getElementById('countPerTicket').value;
+  const price = +document.getElementById('ticketPrice').value;
+  const prize2 = +document.getElementById('prize2').value;
+  const prize3 = +document.getElementById('prize3').value;
+  const prize4 = +document.getElementById('prize4').value;
+  const prize5 = +document.getElementById('prize5').value;
+
+  while(running){
+    const ticket = randomCombination(n,k);
+    const m = match(ticket);
+    stats.t++;
+    stats.spent += price;
+    if(m==2){stats.c2++; stats.paid += prize2;}
+    if(m==3){stats.c3++; stats.paid += prize3;}
+    if(m==4){stats.c4++; stats.paid += prize4;}
+    if(m==5){stats.c5++; stats.paid += prize5;}
+    if(stats.t % 100 === 0) updateUI(); // هر ۱۰۰ بلیط آپدیت UI
+    await new Promise(r=>setTimeout(r,0)); // برای جلوگیری از قفل شدن UI
+  }
+}
+
+document.getElementById('setTarget').onclick = pickTarget;
+document.getElementById('start').onclick = ()=>{pickTarget(); start();};
+document.getElementById('stop').onclick = ()=>{running=false; updateUI();};
+pickTarget();
+updateUI();
+</script>
+</body>
+</html>

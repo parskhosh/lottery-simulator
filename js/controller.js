@@ -1,3 +1,5 @@
+import { createWorkerFromSource } from './worker.js';
+
 // Central Controller - State Machine & Event Wiring
 // Helper functions
 const $ = (s) => document.querySelector(s);
@@ -49,6 +51,7 @@ const RUN = {
 let runState = RUN.IDLE;
 let worker = null;
 let startedAt = 0;
+let inlineWarningShown = false;
 
 // State update function
 function setState(s) {
@@ -96,8 +99,8 @@ async function updateStatusUI(state) {
 async function ensureWorker() {
   if (!worker) {
     try {
-      worker = new Worker('./js/worker.js', { type: 'module' });
-      
+      worker = createWorkerFromSource();
+
       worker.onmessage = ({ data }) => {
         if (data?.t === 'state') {
           setState(data.running ? RUN.RUNNING : (data.paused ? RUN.PAUSED : RUN.IDLE));
@@ -117,14 +120,34 @@ async function ensureWorker() {
         window.diag && window.diag('worker-error', e.message);
       };
       
-      window.diag && window.diag('worker-created');
+      const workerKind = worker?.isInline ? 'inline' : 'blob';
+      window.diag && window.diag('worker-created', workerKind);
+      if (worker?.isInline && !inlineWarningShown) {
+        inlineWarningShown = true;
+        try {
+          const { T } = await import('./i18n.js');
+          const message = T('inlineWorkerFallback') || 'Running without Web Worker – performance may be reduced.';
+          const toastEvent = new CustomEvent('showToast', {
+            detail: { message, type: 'warn' }
+          });
+          document.dispatchEvent(toastEvent);
+        } catch {
+          const toastEvent = new CustomEvent('showToast', {
+            detail: { message: 'Running without Web Worker – performance may be reduced.', type: 'warn' }
+          });
+          document.dispatchEvent(toastEvent);
+        }
+      }
       
       // Send initial settings after worker is ready
       setTimeout(() => {
         import('./state.js').then(({ State }) => {
           if (worker) {
-            worker.postMessage({ t: 'settings', settings: State.settings });
-            worker.postMessage({ t: 'cfg', stopOnJackpot: State.settings.cfg.stopOnJackpot, hidden: document.hidden });
+            worker.postMessage({ t: 'settings', data: State.settings });
+            worker.postMessage({
+              t: 'cfg',
+              data: { stopOnJackpot: State.settings.cfg.stopOnJackpot, hidden: document.hidden }
+            });
             window.diag && window.diag('worker-settings-sent');
           }
         }).catch(e => {
@@ -134,7 +157,8 @@ async function ensureWorker() {
       }, 100);
     } catch (e) {
       console.error('Failed to create worker:', e);
-      throw e;
+      window.diag && window.diag('worker-create-error', e.message);
+      worker = null;
     }
   }
   return worker;
@@ -182,11 +206,17 @@ function setupAllBindings() {
       }
       
       worker = await ensureWorker();
+      if (!worker) {
+        throw new Error('Worker unavailable');
+      }
       
       // Send settings
-      worker.postMessage({ t: 'settings', settings: State.settings });
+      worker.postMessage({ t: 'settings', data: State.settings });
       worker.postMessage({ t: 'queue', data: State.ticketQueue });
-      worker.postMessage({ t: 'cfg', stopOnJackpot: State.settings.cfg.stopOnJackpot, hidden: document.hidden });
+      worker.postMessage({
+        t: 'cfg',
+        data: { stopOnJackpot: State.settings.cfg.stopOnJackpot, hidden: document.hidden }
+      });
       
       // Generate target
       const max = State.settings.game.maxMain;
@@ -201,7 +231,7 @@ function setupAllBindings() {
         main: numbers.slice(0, count).sort((a, b) => a - b),
         bonus: State.settings.game.hasBonus ? Math.floor(Math.random() * State.settings.game.maxBonus) + 1 : null
       };
-      worker.postMessage({ t: 'target', target });
+      worker.postMessage({ t: 'target', data: target });
       
       worker.postMessage({ t: 'start' });
       setState(RUN.RUNNING);
@@ -395,7 +425,7 @@ if (document.readyState === 'loading') {
 // Visibility change handler
 document.addEventListener('visibilitychange', () => {
   if (worker) {
-    worker.postMessage({ t: 'cfg', hidden: document.hidden });
+    worker.postMessage({ t: 'cfg', data: { hidden: document.hidden } });
     window.diag && window.diag('visibility', document.hidden ? 'hidden' : 'visible');
   }
 });

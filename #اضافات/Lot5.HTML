@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>شبیه‌ساز لاتاری — نسخهٔ سریع با Web Worker</title>
+<style>
+  :root{
+    --bg:#0f1115;--card:#161a22;--muted:#9aa4b2;--text:#eef2f7;--accent:#5eead4;--accent-2:#60a5fa;
+    --danger:#ef4444;--ok:#10b981;--warn:#f59e0b;--border:#222737;--chip:#1f2430;--stripe:#141925
+  }
+  [data-theme="light"]{
+    --bg:#f6f7fb;--card:#fff;--muted:#5a6473;--text:#0f172a;--accent:#0ea5e9;--accent-2:#22c55e;
+    --danger:#dc2626;--ok:#16a34a;--warn:#d97706;--border:#e5e7eb;--chip:#f3f4f6;--stripe:#f9fafb
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 ui-sans-serif,system-ui,"Vazirmatn",Tahoma}
+  h1,h2,h3{margin:.2rem 0 .6rem} h1{font-size:1.35rem} h2{font-size:1.1rem} h3{font-size:1rem;color:var(--muted)}
+  .container{max-width:1224px;margin:0 auto;padding:16px}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .row{display:grid;grid-template-columns:360px 1fr;gap:16px} @media(max-width:980px){.row{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.15)}
+  .muted{color:var(--muted)} .chip{display:inline-flex;gap:6px;padding:.25rem .6rem;border-radius:999px;background:var(--chip);border:1px solid var(--border);color:var(--muted);font-weight:600;font-size:12px}
+  .btn{cursor:pointer;border-radius:10px;padding:.55rem .8rem;border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(0,0,0,.08));color:var(--text)}
+  .btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#081018;border:none}
+  .btn.warn{background:linear-gradient(180deg,#f87171,#ef4444);color:#fff;border:none}
+  .btn.secondary{background:linear-gradient(180deg,#a78bfa,#6366f1);color:#0b1020;border:none}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  input,select{width:100%;padding:.55rem .6rem;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px} .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .kpi{display:grid;grid-template-columns:repeat(6,1fr);gap:8px} @media(max-width:980px){.kpi{grid-template-columns:repeat(2,1fr)}}
+  .kpi .item{padding:10px 12px;background:var(--chip);border:1px solid var(--border);border-radius:12px}
+  .kpi .title{font-weight:700;color:var(--muted);font-size:12px} .kpi .value{font-size:1.1rem;font-weight:800;margin-top:2px}
+  .sep{height:1px;background:var(--border);margin:10px 0}
+  .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  th,td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--border)} tbody tr:nth-child(even){background:var(--stripe)}
+  tr.win{background:rgba(16,185,129,.08)} tr.jp{background:rgba(99,102,241,.12)}
+  .progress{height:8px;background:var(--chip);border:1px solid var(--border);border-radius:99px;overflow:hidden}
+  .progress .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .hint{font-size:12px;color:var(--muted)} .small{font-size:12px}
+  canvas{display:block;width:100%;height:240px;background:var(--chip);border:1px solid var(--border);border-radius:10px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip.lg{font-size:13px;padding:.35rem .7rem}
+  .ok{color:var(--ok)} .danger{color:var(--danger)}
+</style>
+</head>
+<body data-theme="dark">
+<div class="container">
+  <div class="toolbar">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <h1>🎯 شبیه‌ساز لاتاری — <span class="muted">نسخهٔ سریع و پایدار</span></h1>
+      <span class="chip">Web Worker</span><span class="chip">Crypto RNG</span><span class="chip">Batch UI</span><span class="chip">CSV</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="themeToggle" class="btn">🌓 تغییر تم</button>
+      <button id="dirToggle" class="btn">↔️ RTL/LTR</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- SETTINGS -->
+    <section class="card" id="settings">
+      <h2>⚙️ تنظیمات</h2>
+      <div class="grid-2">
+        <div>
+          <label for="preset">پریست</label>
+          <select id="preset"></select>
+        </div>
+        <div>
+          <label for="ticketPrice">قیمت بلیط</label>
+          <input type="number" id="ticketPrice" min="0" step="1"/>
+        </div>
+        <div>
+          <label for="maxNumber">بازهٔ اصلی (۱ تا N)</label>
+          <input type="number" id="maxNumber" min="1" step="1"/>
+        </div>
+        <div>
+          <label for="numbersPerTicket">K (تعداد اعداد)</label>
+          <input type="number" id="numbersPerTicket" min="1" step="1"/>
+        </div>
+        <div>
+          <label for="bonusCount">تعداد بونس</label>
+          <input type="number" id="bonusCount" min="0" step="1"/>
+        </div>
+        <div>
+          <label for="bonusPool">استخر بونس (۱ تا M)</label>
+          <input type="number" id="bonusPool" min="0" step="1"/>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <h3>🎯 تارگت</h3>
+      <div class="grid-2">
+        <div>
+          <label for="targetMode">حالت تارگت</label>
+          <select id="targetMode"><option value="random">رندوم</option><option value="manual">دستی</option></select>
+        </div>
+        <div style="display:flex;align-items:end;gap:8px">
+          <button id="genTarget" class="btn secondary" style="width:100%">🎲 تولید تارگت تصادفی</button>
+        </div>
+      </div>
+      <div id="targetMainBox" class="chips"></div>
+      <div id="targetBonusBox" class="chips"></div>
+      <div class="hint">در حالت «روزانه + رندوم»، ابتدای هر روز تارگت جدید ساخته می‌شود.</div>
+
+      <div class="sep"></div>
+      <h3>📆 حالت روزانه</h3>
+      <div class="grid-3">
+        <div><label for="ticketsPerDay">بلیط در روز</label><input id="ticketsPerDay" type="number" min="1" value="10"></div>
+        <div><label for="totalTickets">کل بلیط‌ها</label><input id="totalTickets" type="number" min="1" value="100000"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:24px">
+          <input type="checkbox" id="changeTargetDaily" checked><label for="changeTargetDaily" style="margin:0">تارگت روزانه تغییر کند</label>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <h3>🎯 فیلتر بازهٔ تولید</h3>
+      <div class="grid-3">
+        <div><label for="rangeMin">از</label><input id="rangeMin" type="number" min="1" value="1"></div>
+        <div><label for="rangeMax">تا</label><input id="rangeMax" type="number" min="1" value="70"></div>
+        <div>
+          <label for="rangeMode">حالت فیلتر</label>
+          <select id="rangeMode"><option value="all">همه داخل بازه</option><option value="any">حداقل یک داخل بازه</option><option value="off" selected>خاموش</option></select>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <h3>💰 جوایز</h3>
+      <div id="prizeTableWrap" class="table-wrap small"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="resetPrizeToPreset" class="btn">↩️ بازنشانی به پریست</button>
+      </div>
+
+      <div class="sep"></div>
+      <h3>⚡️ کارایی و پایداری</h3>
+      <div class="grid-3">
+        <div><label for="chunkSize">Chunk (Worker)</label><input id="chunkSize" type="number" min="50" value="2000"></div>
+        <div><label for="speedMs">Throttle UI (ms)</label><input id="speedMs" type="number" min="0" value="0"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:24px">
+          <input type="checkbox" id="stopOnJackpot"><label for="stopOnJackpot" style="margin:0">توقف در جک‌پات</label>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-top:6px">
+        <div>
+          <label for="logMode">سطح لاگ</label>
+          <select id="logMode">
+            <option value="all" selected>تمام بلیط‌ها</option>
+            <option value="wins">فقط بردها</option>
+            <option value="none">بدون لاگ (فقط آمار)</option>
+          </select>
+        </div>
+        <div>
+          <label for="logCap">سقف حافظهٔ لاگ (ردیف)</label>
+          <input id="logCap" type="number" min="1000" value="50000">
+        </div>
+        <div>
+          <label for="displayLimit">نمایش جدول</label>
+          <select id="displayLimit">
+            <option value="300">۳۰۰ تای آخر</option>
+            <option value="1000">۱۰۰۰ تای آخر</option>
+            <option value="1000000">همهٔ درون‌حافظه</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAIN -->
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>📊 آمار زنده</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="startBtn" class="btn primary">▶️ شروع</button>
+          <button id="pauseBtn" class="btn" disabled>⏸️ توقف/ادامه</button>
+          <button id="resetBtn" class="btn warn" disabled>🗑️ ریست</button>
+        </div>
+      </div>
+
+      <div class="kpi" id="kpiRow">
+        <div class="item"><div class="title">Tickets</div><div class="value" id="k_tickets">0</div></div>
+        <div class="item"><div class="title">Days</div><div class="value" id="k_days">0</div></div>
+        <div class="item"><div class="title">Jackpots</div><div class="value" id="k_jackpots">0</div></div>
+        <div class="item"><div class="title">Spent</div><div class="value" id="k_spent">0</div></div>
+        <div class="item"><div class="title">Paid</div><div class="value" id="k_paid">0</div></div>
+        <div class="item"><div class="title">Net P/L</div><div class="value" id="k_net">0</div></div>
+      </div>
+
+      <div class="grid-2" style="margin-top:12px">
+        <div class="card" style="padding:10px">
+          <h3>📈 نمودار سود/زیان (به‌روزرسانی بر اساس Chunk)</h3>
+          <canvas id="profitChart" width="600" height="260"></canvas>
+          <div class="small muted">هر نقطه = پایان یک Chunk. محور افقی: تعداد کل بلیط‌ها، محور عمودی: سود/زیان تجمعی.</div>
+        </div>
+        <div class="card" style="padding:10px">
+          <h3>📆 وضعیت روزانه</h3>
+          <div class="grid-3">
+            <div><div class="title">روز فعلی</div><div class="value" id="d_day">1</div></div>
+            <div><div class="title">بلیط‌های امروز</div><div class="value" id="d_today">0</div></div>
+            <div><div class="title">بردهای امروز</div><div class="value" id="d_wins">0</div></div>
+          </div>
+          <div class="sep"></div>
+          <div class="progress"><div class="bar" id="progressBar"></div></div>
+          <div class="small muted" id="progressText"></div>
+          <div class="sep"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="exportCsv" class="btn">⬇️ خروجی CSV لاگ (درون‌حافظه)</button>
+            <button id="saveSession" class="btn">💾 ذخیرهٔ جلسه</button>
+            <select id="sessionList" style="max-width:240px"></select>
+            <button id="loadSession" class="btn">📤 بارگذاری جلسه</button>
+            <button id="clearStorage" class="btn">🧹 پاک‌سازی تنظیمات</button>
+          </div>
+          <div class="small muted" style="margin-top:6px">اگر «سطح لاگ = بدون لاگ» باشد، CSV شامل لاگ بلیط‌ها نخواهد بود (فقط آمار را ذخیره کنید).</div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <h3>📦 شمارندهٔ بردها بر اساس تطابق</h3>
+      <div class="card" style="padding:10px">
+        <div class="small muted">«فقط اصلی»: مجموع همهٔ بردهای m‑تایی بدون توجه به بونس. «ترکیب‌های بونس‌دار»: دقیقاً m+b.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+          <div>
+            <div class="muted" style="margin-bottom:6px">فقط اصلی (m)</div>
+            <div id="chipsMain" class="chips"></div>
+          </div>
+          <div>
+            <div class="muted" style="margin-bottom:6px">ترکیب‌های بونس‌دار (m+b)</div>
+            <div id="chipsBonus" class="chips"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>📜 لاگ بلیط‌ها</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="filterWins"> فقط بردها</label>
+          <input id="searchLog" placeholder="جستجو (شماره/پریست/روز)…"/>
+        </div>
+      </div>
+      <div class="table-wrap" id="logTableWrap"></div>
+    </section>
+  </div>
+
+  <p class="small muted" style="text-align:center;margin-top:12px">
+    الگوریتم انتخاب بدون جایگزینی: <code>Floyd/Map</code> (بهینه) + <code>crypto.getRandomValues</code> با حذف بایاس.
+    رندر UI فقط در انتهای هر Chunk انجام می‌شود تا از هنگ جلوگیری شود.
+  </p>
+
+  <details class="card" style="margin-top:12px">
+    <summary><strong>📘 README — اجرا و منطق</strong></summary>
+    <ol>
+      <li><b>اجرا:</b> فایل را با مرورگر باز کنید. نیازی به سرور نیست.</li>
+      <li><b>Web Worker:</b> شبیه‌سازی در ترد جدا انجام می‌شود. اندازهٔ <i>Chunk</i> و <i>Throttle</i> را در «کارایی» تنظیم کنید.</li>
+      <li><b>لاگ و حافظه:</b> «سطح لاگ» و «سقف حافظهٔ لاگ» را بر اساس نیاز انتخاب کنید. جدول فقط آخرین N ردیف درون‌حافظه را نمایش می‌دهد.</li>
+      <li><b>CSV:</b> از محتویات درون‌حافظه خروجی می‌گیرد. برای جلسات بسیار بزرگ، پیشنهاد می‌شود «فقط بردها» یا «بدون لاگ» را انتخاب کنید و خلاصهٔ آمار را ذخیره نمایید.</li>
+    </ol>
+  </details>
+</div>
+
+<script>
+(() => {
+  // ===========================
+  // Data & Presets
+  // ===========================
+  const PRESETS = {
+    "Mega Millions": {
+      name:"Mega Millions", n:70, k:5, bonusCount:1, bonusPool:25, ticketPrice:2000,
+      prizeMap:{ "2":500,"3":10000,"4":50000,"5":1000000,"2+1":2000,"3+1":50000,"4+1":200000,"5+1":50000000 }
+    },
+    "Powerball": {
+      name:"Powerball", n:69, k:5, bonusCount:1, bonusPool:26, ticketPrice:2000,
+      prizeMap:{ "2":500,"3":10000,"4":50000,"5":1000000,"2+1":2000,"3+1":50000,"4+1":200000,"5+1":50000000 }
+    },
+    "EuroMillions": {
+      name:"EuroMillions", n:50, k:5, bonusCount:2, bonusPool:12, ticketPrice:2500,
+      prizeMap:{ "2":2000,"3":10000,"4":50000,"5":1000000,"2+1":5000,"3+1":20000,"4+1":100000,"5+1":5000000,"5+2":50000000 }
+    },
+    "Cash Five (TX)": {
+      name:"Cash Five (TX)", n:35, k:5, bonusCount:0, bonusPool:0, ticketPrice:1000,
+      prizeMap:{ "2":2000,"3":10000,"4":50000,"5":1000000 }
+    },
+    "Mini Lotto": {
+      name:"Mini Lotto", n:42, k:5, bonusCount:0, bonusPool:0, ticketPrice:1000,
+      prizeMap:{ "2":2000,"3":10000,"4":50000,"5":1000000 }
+    },
+    "Lotto 6/49": {
+      name:"Lotto 6/49", n:49, k:6, bonusCount:0, bonusPool:0, ticketPrice:2000,
+      prizeMap:{ "2":2000,"3":10000,"4":50000,"5":200000,"6":1000000 }
+    },
+    "Custom": { name:"Custom", n:49, k:6, bonusCount:0, bonusPool:0, ticketPrice:1000, prizeMap:{} }
+  };
+
+  // ===========================
+  // State
+  // ===========================
+  let worker = null;
+  let state = {
+    presetName:"Mega Millions",
+    n:70,k:5,bonusCount:1,bonusPool:25,ticketPrice:2000,
+    prizeMap:{},
+    targetMode:"random",
+    targetMain:[], targetBonus:[],
+    ticketsPerDay:10,totalTickets:100000,changeTargetDaily:true,
+
+    rangeMode:"off", rangeMin:1, rangeMax:70,
+
+    chunkSize:2000, speedMs:0, stopOnJackpot:false,
+    logMode:"all", logCap:50000, displayLimit:300,
+
+    // runtime
+    sessionId:null, isRunning:false, isPaused:false,
+    day:1,todayTickets:0,todayWins:0,
+    stats:{tickets:0,days:0,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}},
+    rows:[],
+    winsOnlyFilter:false, searchTerm:""
+  };
+
+  // ===========================
+  // Elements
+  // ===========================
+  const $ = (s)=>document.querySelector(s);
+  const els = {
+    preset:$("#preset"), ticketPrice:$("#ticketPrice"), maxNumber:$("#maxNumber"), numbersPerTicket:$("#numbersPerTicket"),
+    bonusCount:$("#bonusCount"), bonusPool:$("#bonusPool"),
+    targetMode:$("#targetMode"), genTarget:$("#genTarget"), targetMainBox:$("#targetMainBox"), targetBonusBox:$("#targetBonusBox"),
+    ticketsPerDay:$("#ticketsPerDay"), totalTickets:$("#totalTickets"), changeTargetDaily:$("#changeTargetDaily"),
+    rangeMin:$("#rangeMin"), rangeMax:$("#rangeMax"), rangeMode:$("#rangeMode"),
+    prizeTableWrap:$("#prizeTableWrap"), resetPrizeToPreset:$("#resetPrizeToPreset"),
+    chunkSize:$("#chunkSize"), speedMs:$("#speedMs"), stopOnJackpot:$("#stopOnJackpot"),
+    logMode:$("#logMode"), logCap:$("#logCap"), displayLimit:$("#displayLimit"),
+    startBtn:$("#startBtn"), pauseBtn:$("#pauseBtn"), resetBtn:$("#resetBtn"),
+    k_tickets:$("#k_tickets"), k_days:$("#k_days"), k_jackpots:$("#k_jackpots"),
+    k_spent:$("#k_spent"), k_paid:$("#k_paid"), k_net:$("#k_net"),
+    d_day:$("#d_day"), d_today:$("#d_today"), d_wins:$("#d_wins"),
+    progressBar:$("#progressBar"), progressText:$("#progressText"),
+    exportCsv:$("#exportCsv"), saveSession:$("#saveSession"), sessionList:$("#sessionList"),
+    loadSession:$("#loadSession"), clearStorage:$("#clearStorage"),
+    logTableWrap:$("#logTableWrap"), filterWins:$("#filterWins"), searchLog:$("#searchLog"),
+    themeToggle:$("#themeToggle"), dirToggle:$("#dirToggle"),
+    profitChart:$("#profitChart"),
+    chipsMain:$("#chipsMain"), chipsBonus:$("#chipsBonus")
+  };
+
+  const LS_SETTINGS="lotto.settings.v2", LS_SESSIONS="lotto.sessions.v1";
+  const fmt = (x)=> (x|0).toLocaleString("fa-IR");
+  const nowIso = ()=> new Date().toISOString();
+
+  // ===========================
+  // Prize table & chips
+  // ===========================
+  function buildPrizeKeys(k, bCount){
+    const keys=[];
+    for(let m=2;m<=k;m++){
+      keys.push(String(m));
+      for(let b=1;b<=bCount;b++) keys.push(`${m}+${b}`);
+    }
+    return keys;
+  }
+  function renderPrizeTable(){
+    const keys=buildPrizeKeys(state.k,state.bonusCount);
+    for(const k of keys) if(!(k in state.prizeMap)) state.prizeMap[k]=0;
+    const sorted=keys.slice().sort((a,b)=>{
+      const [am,ab=0]=a.split("+").map(x=>+x||0), [bm,bb=0]=b.split("+").map(x=>+x||0);
+      if(am!==bm) return bm-am; return bb-ab;
+    });
+    const html = [`<table><thead><tr><th>تطابق</th><th>جایزه</th></tr></thead><tbody>`]
+    for(const key of sorted){
+      const jack = isJackKey(key) ? ' <span class="chip">جک‌پات</span>' : '';
+      html.push(`<tr><td><strong>${key}</strong>${jack}</td>
+        <td><input class="prize-input" data-key="${key}" type="number" min="0" step="1" value="${state.prizeMap[key]|0}"></td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+    els.prizeTableWrap.innerHTML = html.join("");
+    els.prizeTableWrap.querySelectorAll(".prize-input").forEach(inp=>{
+      inp.addEventListener("change", e=>{
+        const k=e.target.dataset.key; state.prizeMap[k]=parseInt(e.target.value||"0",10); persistSettings();
+      });
+    });
+    // refresh match chips because layout depends on k/bonusCount
+    renderMatchChipsSkeleton();
+  }
+  function isJackKey(key){
+    const [m,b=0]=key.split("+").map(x=>+x||0);
+    if(state.bonusCount>0) return (m===state.k && b===state.bonusCount);
+    return m===state.k;
+  }
+
+  // Dynamic chips (match counters)
+  function renderMatchChipsSkeleton(){
+    els.chipsMain.innerHTML="";
+    els.chipsBonus.innerHTML="";
+    // main-only m
+    for(let m=2;m<=state.k;m++){
+      const span=document.createElement("span");
+      span.className="chip lg"; span.dataset.key=`m-${m}`;
+      span.innerHTML=`<b>${m}</b> تایی — <span class="muted">0</span>`;
+      els.chipsMain.appendChild(span);
+    }
+    // bonus combos m+b
+    for(let b=1;b<=state.bonusCount;b++){
+      for(let m=2;m<=state.k;m++){
+        const span=document.createElement("span");
+        span.className="chip lg"; span.dataset.key=`mb-${m}+${b}`;
+        span.innerHTML=`<b>${m}+${b}</b> — <span class="muted">0</span>`;
+        els.chipsBonus.appendChild(span);
+      }
+    }
+  }
+  function updateMatchChips(matchCounts){
+    // main-only aggregated (any bonus)
+    for(let m=2;m<=state.k;m++){
+      let sum = (matchCounts[String(m)]|0);
+      for(let b=1;b<=state.bonusCount;b++) sum += (matchCounts[`${m}+${b}`]|0);
+      const el=els.chipsMain.querySelector(`[data-key="m-${m}"] span`);
+      if(el) el.textContent = fmt(sum);
+    }
+    // exact m+b
+    for(let b=1;b<=state.bonusCount;b++){
+      for(let m=2;m<=state.k;m++){
+        const el=els.chipsBonus.querySelector(`[data-key="mb-${m}+${b}"] span`);
+        if(el) el.textContent = fmt(matchCounts[`${m}+${b}`]|0);
+      }
+    }
+  }
+
+  // ===========================
+  // Target inputs
+  // ===========================
+  function renderTargetInputs(){
+    const mk=(parent,count,label)=>{
+      parent.innerHTML="";
+      const title=document.createElement("div"); title.className="muted"; title.textContent=label; parent.appendChild(title);
+      for(let i=0;i<count;i++){
+        const inp=document.createElement("input"); inp.type="number"; inp.min="1"; inp.step="1"; inp.style.width="64px"; inp.style.textAlign="center";
+        inp.addEventListener("change", ()=>{
+          if(parent===els.targetMainBox) state.targetMain[i]=parseInt(inp.value||"0",10);
+          else state.targetBonus[i]=parseInt(inp.value||"0",10);
+          persistSettings();
+        });
+        parent.appendChild(inp);
+      }
+    };
+    mk(els.targetMainBox, state.k, "اعداد اصلی (K)");
+    if(state.bonusCount>0) mk(els.targetBonusBox, state.bonusCount, "بونس");
+    syncTargetInputs();
+  }
+  function syncTargetInputs(){
+    Array.from(els.targetMainBox.querySelectorAll("input")).forEach((inp,i)=> inp.value = state.targetMain[i]||"");
+    Array.from(els.targetBonusBox.querySelectorAll("input")).forEach((inp,i)=> inp.value = state.targetBonus[i]||"");
+  }
+  function randomizeTarget(){
+    // quick random for UI preview (worker نیز خودش مستقل تولید می‌کند)
+    state.targetMain = sampleUniqueUI(state.n,state.k);
+    state.targetBonus = state.bonusCount>0 ? sampleUniqueUI(state.bonusPool,state.bonusCount):[];
+    syncTargetInputs();
+  }
+  function sampleUniqueUI(n,k){
+    const arr=Array.from({length:n},(_,i)=>i+1);
+    for(let i=arr.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr.slice(0,k).sort((a,b)=>a-b);
+  }
+
+  // ===========================
+  // Persist
+  // ===========================
+  function persistSettings(){
+    const toSave={
+      presetName:state.presetName,n:state.n,k:state.k,bonusCount:state.bonusCount,bonusPool:state.bonusPool,ticketPrice:state.ticketPrice,
+      prizeMap:state.prizeMap,targetMode:state.targetMode,targetMain:state.targetMain,targetBonus:state.targetBonus,
+      ticketsPerDay:state.ticketsPerDay,totalTickets:state.totalTickets,changeTargetDaily:state.changeTargetDaily,
+      rangeMode:state.rangeMode,rangeMin:state.rangeMin,rangeMax:state.rangeMax,
+      chunkSize:state.chunkSize,speedMs:state.speedMs,stopOnJackpot:state.stopOnJackpot,
+      logMode:state.logMode,logCap:state.logCap,displayLimit:state.displayLimit,
+      theme:document.body.getAttribute("data-theme"), dir:document.documentElement.getAttribute("dir")
+    };
+    localStorage.setItem(LS_SETTINGS, JSON.stringify(toSave));
+  }
+  function restoreSettings(){
+    const raw=localStorage.getItem(LS_SETTINGS); if(!raw) return;
+    try{
+      const s=JSON.parse(raw);
+      Object.assign(state,s);
+      // reflect
+      els.preset.value=state.presetName;
+      els.maxNumber.value=state.n; els.numbersPerTicket.value=state.k;
+      els.bonusCount.value=state.bonusCount; els.bonusPool.value=state.bonusPool;
+      els.ticketPrice.value=state.ticketPrice;
+      els.targetMode.value=state.targetMode;
+      els.ticketsPerDay.value=state.ticketsPerDay; els.totalTickets.value=state.totalTickets;
+      els.changeTargetDaily.checked=state.changeTargetDaily;
+      els.rangeMode.value=state.rangeMode; els.rangeMin.value=state.rangeMin; els.rangeMax.value=state.rangeMax;
+      els.chunkSize.value=state.chunkSize; els.speedMs.value=state.speedMs; els.stopOnJackpot.checked=state.stopOnJackpot;
+      els.logMode.value=state.logMode; els.logCap.value=state.logCap; els.displayLimit.value=state.displayLimit;
+      if(s.theme) document.body.setAttribute("data-theme", s.theme);
+      if(s.dir) document.documentElement.setAttribute("dir", s.dir);
+      renderPrizeTable(); renderTargetInputs(); syncTargetInputs();
+    }catch(e){}
+  }
+
+  function refreshSessionsSelect(){
+    const raw=localStorage.getItem(LS_SESSIONS); let obj={}; try{obj=JSON.parse(raw||"{}")}catch(e){}
+    els.sessionList.innerHTML = `<option value="">جلسه‌ای را انتخاب کنید…</option>` +
+      Object.keys(obj).sort().reverse().map(id=>{
+        const ss=obj[id]; return `<option value="${id}">${id} — ${ss.presetName} — tickets:${ss.stats?.tickets||0}</option>`;
+      }).join("");
+  }
+
+  // ===========================
+  // Chart (Canvas)
+  // ===========================
+  const chart = { ctx: els.profitChart.getContext("2d"), points:[], maxPoints:2000 };
+  function chartReset(){ chart.points.length=0; chartDraw(); }
+  function chartAddPoint(tickets, net){
+    chart.points.push({x:+tickets,y:+net}); if(chart.points.length>chart.maxPoints) chart.points.shift(); chartDraw();
+  }
+  function chartDraw(){
+    const c=els.profitChart, ctx=chart.ctx; ctx.clearRect(0,0,c.width,c.height);
+    const pad={l:48,r:10,t:10,b:24}, w=c.width-pad.l-pad.r, h=c.height-pad.t-pad.b;
+    const xs=chart.points.map(p=>p.x), ys=chart.points.map(p=>p.y);
+    const minX=xs.length?Math.min(...xs):0, maxX=xs.length?Math.max(...xs):1;
+    const minY=ys.length?Math.min(...ys): -100, maxY=ys.length?Math.max(...ys):100;
+    const cs=getComputedStyle(document.body);
+    // grid
+    ctx.strokeStyle=cs.getPropertyValue('--border'); ctx.lineWidth=1; ctx.beginPath();
+    for(let i=0;i<=5;i++){ const y=pad.t+h*(i/5); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); }
+    ctx.stroke();
+    ctx.fillStyle=cs.getPropertyValue('--muted'); ctx.font="12px ui-sans-serif"; ctx.textAlign="right"; ctx.textBaseline="middle";
+    ctx.fillText(fmt(maxY), pad.l-6, pad.t); ctx.fillText(fmt(minY), pad.l-6, pad.t+h);
+    if(chart.points.length>1){
+      ctx.beginPath(); ctx.lineWidth=2; ctx.strokeStyle=cs.getPropertyValue('--accent-2');
+      chart.points.forEach((p,i)=>{ const x=pad.l+w*((p.x-minX)/(maxX-minX||1)), y=pad.t+h*(1-(p.y-minY)/(maxY-minY||1)); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+      ctx.stroke();
+    }
+  }
+
+  // ===========================
+  // Log Table
+  // ===========================
+  function renderLog(){
+    const rows = state.rows;
+    let filtered = state.winsOnlyFilter ? rows.filter(r=>r.prizeAmount>0) : rows;
+    const q=(state.searchTerm||"").trim().toLowerCase();
+    if(q) filtered = filtered.filter(r =>
+      r.presetName.toLowerCase().includes(q) || r.timestamp.includes(q) ||
+      String(r.ticketIndex).includes(q) || String(r.day).includes(q) ||
+      r.numbersMain.join(",").includes(q) || (r.numbersBonus||[]).join(",").includes(q) ||
+      String(r.prizeAmount).includes(q)
+    );
+    const N = state.displayLimit|0;
+    const view = filtered.slice(-N);
+    const head=`<table><thead><tr>
+      <th style="min-width:120px">timestamp</th><th>sessionId</th><th>#</th><th>Day</th>
+      <th>numbersMain</th><th>numbersBonus</th><th>matchedMain</th><th>matchedBonus</th>
+      <th>prize</th><th>spent</th><th>net</th><th>preset</th></tr></thead><tbody>`;
+    const body=view.map(r=>{
+      const cls=r.prizeAmount>0 ? ((r.matchedMain===state.k && r.matchedBonus===state.bonusCount)? "jp":"win") : "";
+      return `<tr class="${cls}">
+        <td>${r.timestamp}</td><td class="small">${r.sessionId}</td><td>${r.ticketIndex}</td><td>${r.day}</td>
+        <td>${r.numbersMain.join(",")}</td><td>${(r.numbersBonus||[]).join(",")}</td>
+        <td>${r.matchedMain}</td><td>${r.matchedBonus}</td>
+        <td>${fmt(r.prizeAmount)}</td><td>${fmt(r.spentAmount)}</td><td>${fmt(r.netAmount)}</td>
+        <td>${r.presetName}</td></tr>`;
+    }).join("");
+    els.logTableWrap.innerHTML = head+body+`</tbody></table>`;
+  }
+
+  // ===========================
+  // KPI & progress
+  // ===========================
+  function updateKPI(){
+    els.k_tickets.textContent=fmt(state.stats.tickets);
+    els.k_days.textContent=fmt(state.stats.days);
+    els.k_jackpots.textContent=fmt(state.stats.jackpots);
+    els.k_spent.textContent=fmt(state.stats.spent);
+    els.k_paid.textContent=fmt(state.stats.paid);
+    const net=state.stats.paid - state.stats.spent;
+    els.k_net.textContent=fmt(net);
+    els.k_net.style.color = net>=0 ? getComputedStyle(document.body).getPropertyValue('--ok') : getComputedStyle(document.body).getPropertyValue('--danger');
+
+    els.d_day.textContent = state.day;
+    els.d_today.textContent = state.todayTickets;
+    els.d_wins.textContent = state.todayWins;
+
+    updateProgress();
+    updateMatchChips(state.stats.matchCounts||{});
+  }
+  function updateProgress(){
+    const pct = Math.floor((state.stats.tickets/(state.totalTickets||1))*100);
+    els.progressBar.style.width = Math.max(0,Math.min(100,pct))+"%";
+    els.progressText.textContent = `پیشرفت: ${fmt(state.stats.tickets)}/${fmt(state.totalTickets)} (${pct}%)`;
+  }
+
+  // ===========================
+  // CSV
+  // ===========================
+  function toCSV(){
+    const header = "timestamp,sessionId,ticketIndex,day,numbersMain,numbersBonus,matchedMain,matchedBonus,prizeAmount,spentAmount,netAmount,presetName";
+    const lines = state.rows.map(r=>{
+      return [
+        r.timestamp, r.sessionId, r.ticketIndex, r.day,
+        `"${r.numbersMain.join(",")}"`, `"${(r.numbersBonus||[]).join(",")}"`,
+        r.matchedMain, r.matchedBonus, r.prizeAmount, r.spentAmount, r.netAmount, `"${r.presetName}"`
+      ].join(",");
+    });
+    return [header, ...lines].join("\n");
+  }
+  function download(filename,text){
+    const blob=new Blob([text],{type:"text/csv;charset=utf-8;"}); const a=document.createElement("a");
+    const url=URL.createObjectURL(blob); a.href=url; a.download=filename; a.style.display="none"; document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  // ===========================
+  // Worker
+  // ===========================
+  function createWorker(){
+    const code = `
+    let running=false, paused=false, cfg=null;
+
+    // ----- RNG without modulo bias -----
+    function randBelow(n){ // 0..n-1
+      if(n<=0) return 0;
+      const max = 0x100000000; // 2^32
+      const limit = Math.floor(max / n) * n;
+      const buf = new Uint32Array(1);
+      let r;
+      do { crypto.getRandomValues(buf); r=buf[0]; } while (r >= limit);
+      return r % n;
+    }
+    function randBetween1(n){ return randBelow(n) + 1; }
+
+    // Floyd/Map sampling without replacement (O(k))
+    function sampleUnique(n,k){
+      const map=new Map(); const res=new Array(k);
+      for(let i=0;i<k;i++){
+        const r = randBetween1(n - i); // 1..(n-i)
+        const x = map.get(r) || r;
+        const y = map.get(n - i) || (n - i);
+        map.set(r, y);
+        res[i] = x;
+      }
+      res.sort((a,b)=>a-b);
+      return res;
+    }
+
+    function countMatches(arr, set){ // arr small, set from target
+      let c=0; for(let i=0;i<arr.length;i++) if(set.has(arr[i])) c++; return c;
+    }
+    function calcPrize(prizeMap, m, b){
+      const key2 = (b>0) ? (m + "+" + b) : null;
+      if(key2!=null && prizeMap.hasOwnProperty(key2)) return prizeMap[key2]|0;
+      if(prizeMap.hasOwnProperty(String(m))) return prizeMap[String(m)]|0;
+      return 0;
+    }
+
+    function inRange(main, mode, a, b){
+      if(mode==="off") return true;
+      if(a>b) return true;
+      if(mode==="all") return main.every(x=>x>=a && x<=b);
+      if(mode==="any") return main.some(x=>x>=a && x<=b);
+      return true;
+    }
+    function viableAllRange(k,a,b){ return (b - a + 1) >= k; }
+
+    function randomizeTarget(n,k, bonusCount, bonusPool){
+      const main = sampleUnique(n,k);
+      const bonus = bonusCount>0 ? sampleUnique(bonusPool, bonusCount) : [];
+      return {main, bonus};
+    }
+
+    function nowIso(){ return new Date().toISOString(); }
+
+    function rowObj(sessionId, idx, day, t, m, b, prize, spent, net, presetName){
+      return {
+        timestamp: nowIso(), sessionId, ticketIndex: idx, day,
+        numbersMain: t.main, numbersBonus: t.bonus,
+        matchedMain: m, matchedBonus: b,
+        prizeAmount: prize|0, spentAmount: spent|0, netAmount: net|0,
+        presetName
+      };
+    }
+
+    self.onmessage = async (e)=>{
+      const {type, config} = e.data||{};
+      if(type==="start"){
+        cfg = config;
+        if(cfg.rangeMode==="all" && !viableAllRange(cfg.k, cfg.rangeMin|0, cfg.rangeMax|0)){
+          self.postMessage({type:"error", message:"بازهٔ انتخابی برای «همه داخل بازه» معتبر نیست (عرض بازه باید ≥ K باشد)."});
+          return;
+        }
+        running=true; paused=false;
+        await run();
+      } else if(type==="pause"){ paused=true; }
+      else if(type==="resume"){ paused=false; }
+      else if(type==="stop"){ running=false; }
+    };
+
+    const sleep=(ms)=> new Promise(r=>setTimeout(r,ms));
+
+    async function run(){
+      const stats = {tickets:0, days:1, jackpots:0, spent:0, paid:0, net:0, matchCounts:{}};
+      let sessionId = cfg.sessionId;
+      let day=1, todayTickets=0, todayWins=0;
+
+      // target init
+      let targetMain = (cfg.targetMode==="manual" && (cfg.targetMain||[]).length===cfg.k) ? cfg.targetMain.slice().sort((a,b)=>a-b) : null;
+      let targetBonus = (cfg.targetMode==="manual" && (cfg.targetBonus||[]).length===cfg.bonusCount) ? cfg.targetBonus.slice().sort((a,b)=>a-b) : [];
+      if(cfg.targetMode==="random" || !targetMain) {
+        const t = randomizeTarget(cfg.n, cfg.k, cfg.bonusCount, cfg.bonusPool);
+        targetMain = t.main; targetBonus = t.bonus;
+      }
+      let targetSet = new Set(targetMain), bonusSet = new Set(targetBonus);
+
+      const total = cfg.totalTickets|0;
+      const chunk = Math.max(1, cfg.chunkSize|0);
+      const spentPer = cfg.ticketPrice|0;
+
+      for(let done=0; done<total && running; ){
+        if(paused){ await sleep(60); continue; }
+
+        const limit = Math.min(chunk, total - done);
+        const rows = (cfg.logMode==="none") ? null : [];
+        for(let i=0;i<limit && running;i++){
+          // new day?
+          if(todayTickets >= (cfg.ticketsPerDay|0)){
+            stats.days++; day++; todayTickets=0; todayWins=0;
+            if(cfg.changeTargetDaily && cfg.targetMode==="random"){
+              const t = randomizeTarget(cfg.n, cfg.k, cfg.bonusCount, cfg.bonusPool);
+              targetMain = t.main; targetBonus = t.bonus;
+              targetSet = new Set(targetMain); bonusSet = new Set(targetBonus);
+            }
+          }
+
+          // generate ticket obeying range
+          let t=null, tries=0;
+          while(true){
+            tries++;
+            const main = sampleUnique(cfg.n, cfg.k);
+            if(inRange(main, cfg.rangeMode, cfg.rangeMin|0, cfg.rangeMax|0)){
+              const bonus = cfg.bonusCount>0 ? sampleUnique(cfg.bonusPool, cfg.bonusCount) : [];
+              t = {main, bonus};
+              break;
+            }
+            if(tries>2000){ // fallback
+              const main = sampleUnique(cfg.n, cfg.k);
+              const bonus = cfg.bonusCount>0 ? sampleUnique(cfg.bonusPool, cfg.bonusCount) : [];
+              t = {main, bonus}; break;
+            }
+          }
+
+          const m = countMatches(t.main, targetSet);
+          const b = cfg.bonusCount>0 ? countMatches(t.bonus, bonusSet) : 0;
+          const prize = calcPrize(cfg.prizeMap, m, b);
+          const spent = spentPer;
+          const net   = (prize|0) - (spent|0);
+
+          stats.tickets++;
+          todayTickets++;
+          stats.spent += spent;
+          stats.paid  += prize;
+          stats.net    = stats.paid - stats.spent;
+
+          const key = (b>0) ? (m + "+" + b) : String(m);
+          stats.matchCounts[key] = (stats.matchCounts[key]|0) + 1;
+
+          const isJack = (cfg.bonusCount>0) ? (m===cfg.k && b===cfg.bonusCount) : (m===cfg.k);
+          if(isJack){ stats.jackpots++; todayWins++; if(cfg.stopOnJackpot){ rows && rows.push(rowObj(sessionId, stats.tickets, day, t, m, b, prize, spent, net, cfg.presetName)); running=false; break; } }
+          if(prize>0) todayWins++;
+
+          if(rows){
+            if(cfg.logMode==="all" || (cfg.logMode==="wins" && prize>0)){
+              rows.push(rowObj(sessionId, stats.tickets, day, t, m, b, prize, spent, net, cfg.presetName));
+            }
+          }
+          done++;
+        }
+
+        self.postMessage({type:"chunk", stats, rows, day, todayTickets, todayWins});
+        if(!running) break;
+        if((cfg.delayMs|0)>0) await sleep(cfg.delayMs|0);
+      }
+      self.postMessage({type:"done"});
+    }
+    `;
+    const blob = new Blob([code], {type:"application/javascript"});
+    const url = URL.createObjectURL(blob);
+    const w = new Worker(url);
+    w._url = url;
+    return w;
+  }
+  function destroyWorker(){
+    if(worker){ worker.terminate(); URL.revokeObjectURL(worker._url); worker=null; }
+  }
+
+  // ===========================
+  // Run / Pause / Reset
+  // ===========================
+  function start(){
+    if(state.isRunning) return;
+    // validate range
+    if(state.rangeMode==="all" && (state.rangeMax - state.rangeMin + 1) < state.k){
+      alert("⚠️ عرض بازه باید ≥ K باشد."); return;
+    }
+    state.isRunning=true; state.isPaused=false; state.sessionId = `session-${new Date().toISOString().replace(/[-:TZ.]/g,"").slice(0,14)}`;
+    state.rows.length=0;
+    state.stats={tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}};
+    state.day=1; state.todayTickets=0; state.todayWins=0;
+    chartReset(); updateKPI(); renderLog();
+
+    // worker config
+    const config = {
+      sessionId: state.sessionId,
+      presetName: state.presetName,
+      n: state.n, k: state.k, bonusCount: state.bonusCount, bonusPool: state.bonusPool,
+      ticketPrice: state.ticketPrice,
+      prizeMap: state.prizeMap,
+      targetMode: state.targetMode,
+      targetMain: state.targetMain, targetBonus: state.targetBonus,
+      ticketsPerDay: state.ticketsPerDay, totalTickets: state.totalTickets, changeTargetDaily: state.changeTargetDaily,
+      rangeMode: state.rangeMode, rangeMin: state.rangeMin, rangeMax: state.rangeMax,
+      chunkSize: state.chunkSize, delayMs: state.speedMs, stopOnJackpot: state.stopOnJackpot,
+      logMode: state.logMode
+    };
+
+    destroyWorker();
+    worker = createWorker();
+    worker.onmessage = (e)=>{
+      const {type} = e.data||{};
+      if(type==="error"){
+        alert(e.data.message||"خطای Worker"); stop(true); return;
+      }
+      if(type==="chunk"){
+        const {stats, rows, day, todayTickets, todayWins} = e.data;
+        // adopt absolute stats from worker
+        state.stats = stats;
+        state.day = day; state.todayTickets = todayTickets; state.todayWins = todayWins;
+
+        // merge rows (cap memory)
+        if(rows && Array.isArray(rows) && rows.length){
+          state.rows.push(...rows);
+          const cap = state.logCap|0;
+          if(state.rows.length > cap){
+            state.rows.splice(0, state.rows.length - cap);
+          }
+        }
+
+        updateKPI();
+        renderLog();
+        chartAddPoint(state.stats.tickets, state.stats.net);
+      }
+      if(type==="done"){
+        stop(false);
+      }
+    };
+    worker.postMessage({type:"start", config});
+    els.startBtn.disabled=true; els.pauseBtn.disabled=false; els.resetBtn.disabled=false;
+  }
+  function pause(){
+    if(!state.isRunning) return;
+    state.isPaused = !state.isPaused;
+    if(state.isPaused){ worker?.postMessage({type:"pause"}); els.pauseBtn.textContent="▶️ ادامه"; }
+    else { worker?.postMessage({type:"resume"}); els.pauseBtn.textContent="⏸️ توقف"; }
+  }
+  function stop(aborted){
+    state.isRunning=false; state.isPaused=false;
+    els.startBtn.disabled=false; els.pauseBtn.disabled=true; els.resetBtn.disabled=true;
+    els.pauseBtn.textContent="⏸️ توقف/ادامه";
+    destroyWorker();
+    updateKPI(); renderLog();
+    if(aborted) return;
+  }
+
+  // ===========================
+  // UI bindings
+  // ===========================
+  function loadPresetOptions(){
+    els.preset.innerHTML = Object.keys(PRESETS).map(n=>`<option value="${n}">${n}</option>`).join("");
+  }
+  function applyPreset(name){
+    const p = JSON.parse(JSON.stringify(PRESETS[name]));
+    state.presetName=p.name; state.n=p.n; state.k=p.k; state.bonusCount=p.bonusCount; state.bonusPool=p.bonusPool;
+    state.ticketPrice=p.ticketPrice; state.prizeMap=p.prizeMap||{};
+    els.preset.value=name; els.maxNumber.value=state.n; els.numbersPerTicket.value=state.k;
+    els.bonusCount.value=state.bonusCount; els.bonusPool.value=state.bonusPool; els.ticketPrice.value=state.ticketPrice;
+    state.rangeMin=1; state.rangeMax=state.n; els.rangeMin.value=1; els.rangeMax.value=state.n; els.rangeMode.value="off"; state.rangeMode="off";
+    renderPrizeTable(); renderTargetInputs(); persistSettings();
+  }
+
+  // Settings change
+  els.preset.addEventListener("change", ()=> applyPreset(els.preset.value));
+  els.ticketPrice.addEventListener("change", ()=>{ state.ticketPrice=+els.ticketPrice.value||0; persistSettings(); });
+  els.maxNumber.addEventListener("change", ()=>{ state.n=+els.maxNumber.value||0; persistSettings(); renderTargetInputs(); renderPrizeTable(); });
+  els.numbersPerTicket.addEventListener("change", ()=>{ state.k=+els.numbersPerTicket.value||0; persistSettings(); renderTargetInputs(); renderPrizeTable(); });
+  els.bonusCount.addEventListener("change", ()=>{ state.bonusCount=+els.bonusCount.value||0; persistSettings(); renderTargetInputs(); renderPrizeTable(); });
+  els.bonusPool.addEventListener("change", ()=>{ state.bonusPool=+els.bonusPool.value||0; persistSettings(); renderTargetInputs(); renderPrizeTable(); });
+
+  els.targetMode.addEventListener("change", ()=>{ state.targetMode=els.targetMode.value; persistSettings(); });
+  els.genTarget.addEventListener("click", ()=>{ randomizeTarget(); persistSettings(); });
+
+  els.ticketsPerDay.addEventListener("change", ()=>{ state.ticketsPerDay=+els.ticketsPerDay.value||0; persistSettings(); });
+  els.totalTickets.addEventListener("change", ()=>{ state.totalTickets=+els.totalTickets.value||0; updateProgress(); persistSettings(); });
+  els.changeTargetDaily.addEventListener("change", ()=>{ state.changeTargetDaily=els.changeTargetDaily.checked; persistSettings(); });
+
+  els.rangeMin.addEventListener("change", ()=>{ state.rangeMin=+els.rangeMin.value||0; persistSettings(); });
+  els.rangeMax.addEventListener("change", ()=>{ state.rangeMax=+els.rangeMax.value||0; persistSettings(); });
+  els.rangeMode.addEventListener("change", ()=>{ state.rangeMode=els.rangeMode.value; persistSettings(); });
+
+  els.resetPrizeToPreset.addEventListener("click", ()=>{ state.prizeMap = JSON.parse(JSON.stringify(PRESETS[state.presetName].prizeMap||{})); renderPrizeTable(); persistSettings(); });
+
+  els.chunkSize.addEventListener("change", ()=>{ state.chunkSize=+els.chunkSize.value||0; persistSettings(); });
+  els.speedMs.addEventListener("change", ()=>{ state.speedMs=+els.speedMs.value||0; persistSettings(); });
+  els.stopOnJackpot.addEventListener("change", ()=>{ state.stopOnJackpot=els.stopOnJackpot.checked; persistSettings(); });
+
+  els.logMode.addEventListener("change", ()=>{ state.logMode=els.logMode.value; persistSettings(); });
+  els.logCap.addEventListener("change", ()=>{ state.logCap=+els.logCap.value||50000; persistSettings(); });
+  els.displayLimit.addEventListener("change", ()=>{ state.displayLimit=+els.displayLimit.value||300; persistSettings(); renderLog(); });
+
+  els.filterWins.addEventListener("change", ()=>{ state.winsOnlyFilter=els.filterWins.checked; renderLog(); });
+  els.searchLog.addEventListener("input", ()=>{ state.searchTerm=els.searchLog.value||""; renderLog(); });
+
+  els.startBtn.addEventListener("click", start);
+  els.pauseBtn.addEventListener("click", pause);
+  els.resetBtn.addEventListener("click", ()=>{ stop(true);
+    state.rows.length=0; state.stats={tickets:0,days:1,jackpots:0,spent:0,paid:0,net:0,matchCounts:{}}; state.day=1; state.todayTickets=0; state.todayWins=0;
+    chartReset(); updateKPI(); renderLog();
+  });
+
+  els.exportCsv.addEventListener("click", ()=>{
+    if(state.rows.length===0){ alert("لاگی در حافظه نیست (بر اساس سطح لاگ/سقف حافظه)."); return; }
+    download(`lotto-${state.sessionId||"session"}.csv`, toCSV());
+  });
+
+  els.saveSession.addEventListener("click", ()=>{
+    const raw=localStorage.getItem(LS_SESSIONS); let obj={}; try{obj=JSON.parse(raw||"{}")}catch(e){}
+    const id = state.sessionId || `manual-${Date.now()}`;
+    obj[id]={ savedAt:nowIso(), presetName:state.presetName,
+      settings:{ n:state.n,k:state.k,bonusCount:state.bonusCount,bonusPool:state.bonusPool,ticketPrice:state.ticketPrice,
+        rangeMode:state.rangeMode,rangeMin:state.rangeMin,rangeMax:state.rangeMax },
+      stats: JSON.parse(JSON.stringify(state.stats))
+    };
+    localStorage.setItem(LS_SESSIONS, JSON.stringify(obj)); refreshSessionsSelect(); alert("✅ جلسه (آمار و تنظیمات) ذخیره شد.");
+  });
+
+  els.loadSession.addEventListener("click", ()=>{
+    const id=els.sessionList.value; if(!id){ alert("لطفاً جلسه را انتخاب کنید."); return; }
+    const raw=localStorage.getItem(LS_SESSIONS); let obj={}; try{obj=JSON.parse(raw||"{}")}catch(e){}
+    const ss=obj[id]; if(!ss){ alert("یافت نشد."); return; }
+    state.presetName=ss.presetName; els.preset.value=state.presetName;
+    const s=ss.settings||{}; state.n=s.n;state.k=s.k;state.bonusCount=s.bonusCount;state.bonusPool=s.bonusPool;state.ticketPrice=s.ticketPrice;
+    state.rangeMode=s.rangeMode; state.rangeMin=s.rangeMin; state.rangeMax=s.rangeMax;
+    els.maxNumber.value=state.n; els.numbersPerTicket.value=state.k; els.bonusCount.value=state.bonusCount; els.bonusPool.value=state.bonusPool; els.ticketPrice.value=state.ticketPrice;
+    els.rangeMode.value=state.rangeMode; els.rangeMin.value=state.rangeMin; els.rangeMax.value=state.rangeMax;
+    renderPrizeTable(); renderTargetInputs(); syncTargetInputs();
+    state.stats = JSON.parse(JSON.stringify(ss.stats||{}));
+    state.day=state.stats.days||1; state.todayTickets=0; state.todayWins=0;
+    chartReset(); chartAddPoint(state.stats.tickets, state.stats.net||0);
+    updateKPI(); renderLog();
+    alert("جلسه بارگذاری شد (آمار/تنظیمات).");
+  });
+
+  els.clearStorage.addEventListener("click", ()=>{ if(confirm("تنظیمات و جلسات ذخیره‌شده پاک شوند؟")){ localStorage.removeItem(LS_SETTINGS); localStorage.removeItem(LS_SESSIONS); refreshSessionsSelect(); alert("پاک شد."); } });
+
+  // Theme/Dir
+  els.themeToggle.addEventListener("click", ()=>{ const cur=document.body.getAttribute("data-theme")==="dark"?"light":"dark"; document.body.setAttribute("data-theme",cur); persistSettings(); chartDraw(); });
+  els.dirToggle.addEventListener("click", ()=>{ const d=document.documentElement.getAttribute("dir")==="rtl"?"ltr":"rtl"; document.documentElement.setAttribute("dir",d); persistSettings(); });
+
+  // Init
+  function init(){
+    loadPresetOptions();
+    applyPreset(state.presetName);
+    restoreSettings();
+    refreshSessionsSelect();
+    updateKPI(); renderLog(); chartDraw();
+  }
+  init();
+})();
+</script>
+</body>
+</html>

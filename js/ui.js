@@ -1,15 +1,17 @@
 // UI rendering and events module
-import { State, saveSettings } from './state.js';
+import { State, saveSettings, GAME_PRESETS, applyGamePreset } from './state.js';
 import { Currency, fmtDual, updateCurrencyDisplay } from './currency.js';
 import { T, switchLanguage } from './i18n.js';
 import { initGrid, updateGridConfig, quickPick, clearSelection, clearPinned, clearPreferred, clearExcluded, addTicket, clearQueue, getNextTicket, highlightMatches, pulseCurrentTicket } from './ticket.js';
 import { initCharts, updateCharts } from './charts.js';
 import { initLogs, renderLogs, addLogEntry } from './logs.js';
+import { initPrizeMapEditor, updatePrizeMapUI } from './prize-map-editor.js';
 import { exportCSV } from './csv.js';
 
 let worker = null; // Now managed by controller.js
 let statusUpdateTimer = null;
 let lastStatsUpdate = 0;
+let smoothedRate = 0;
 
 // Initialize UI
 function initUI() {
@@ -62,6 +64,13 @@ function initUI() {
       console.error('Failed to send queue to worker:', err);
     }
   });
+
+  document.addEventListener('ticketSelectionChanged', (e) => {
+    const currentRunState = State.runState || window.runState || 'idle';
+    if (currentRunState === 'running') return;
+    const selected = e.detail?.selected || [];
+    renderCurrentTicket(selected);
+  });
 }
 
 // Setup controls - buttons are now bound in controller.js
@@ -72,14 +81,115 @@ function setupControls() {
     // Worker is managed by controller
     const controllerWorker = window.worker || worker;
     if (controllerWorker) {
-      controllerWorker.postMessage({ t: 'cfg', stopOnJackpot: e.target.checked });
+      controllerWorker.postMessage({ t: 'cfg', data: { stopOnJackpot: e.target.checked } });
     }
     saveSettings();
   });
 }
 
+function renderCurrentTicket(numbers = []) {
+  const container = document.getElementById('current-ticket');
+  if (!container) return;
+
+  const mainCount = State?.settings?.game?.mainCount || 0;
+  const hasBonus = !!State?.settings?.game?.hasBonus;
+  const selectionFallback = Array.isArray(State?.selectedNumbers) ? [...State.selectedNumbers] : [];
+  const sourceNumbers = Array.isArray(numbers) && numbers.length > 0 ? [...numbers] : selectionFallback;
+  const sorted = sourceNumbers.sort((a, b) => a - b);
+  const frag = document.createDocumentFragment();
+
+  const createBall = (value, opts = {}) => {
+    const span = document.createElement('span');
+    span.className = 'draw-ball';
+    if (opts.bonus) span.classList.add('bonus');
+    if (opts.placeholder) span.classList.add('placeholder');
+
+    const display = opts.placeholder || typeof value !== 'number'
+      ? '--'
+      : String(value).padStart(2, '0');
+    span.textContent = display;
+    return span;
+  };
+
+  if (mainCount === 0 && !hasBonus) {
+    for (let i = 0; i < 6; i++) {
+      frag.appendChild(createBall(undefined, { placeholder: true }));
+    }
+  } else {
+    for (let i = 0; i < mainCount; i++) {
+      const value = sorted[i];
+      const placeholder = typeof value !== 'number' || Number.isNaN(value);
+      frag.appendChild(createBall(value, { placeholder }));
+    }
+
+    if (hasBonus) {
+      const plus = document.createElement('span');
+      plus.className = 'draw-split';
+      plus.textContent = '+';
+      frag.appendChild(plus);
+
+      const bonusValue = sorted[mainCount];
+      const bonusPlaceholder = typeof bonusValue !== 'number' || Number.isNaN(bonusValue);
+      frag.appendChild(createBall(bonusValue, { bonus: true, placeholder: bonusPlaceholder }));
+    }
+  }
+
+  container.innerHTML = '';
+  container.appendChild(frag);
+
+  const hasNumbers = sourceNumbers.length > 0;
+  container.classList.toggle('is-placeholder', !hasNumbers);
+  if (hasNumbers) {
+    container.classList.add('is-updated');
+    setTimeout(() => container.classList.remove('is-updated'), 650);
+  }
+}
+
+function renderPresetOptions() {
+  const select = document.getElementById('game-preset');
+  if (!select) return;
+  
+  const currentValue = State.settings.preset || 'custom';
+  const fragment = document.createDocumentFragment();
+  
+  Object.entries(GAME_PRESETS).forEach(([key, preset]) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = T(preset.labelKey) || preset.labelKey;
+    fragment.appendChild(option);
+  });
+  
+  const customOption = document.createElement('option');
+  customOption.value = 'custom';
+  customOption.textContent = T('custom') || 'Custom';
+  fragment.appendChild(customOption);
+  
+  select.innerHTML = '';
+  select.appendChild(fragment);
+  
+  if (select.querySelector(`option[value="${currentValue}"]`)) {
+    select.value = currentValue;
+  } else {
+    select.value = 'custom';
+  }
+}
+
+function markCustomPreset() {
+  if (State.settings.preset !== 'custom') {
+    State.settings.preset = 'custom';
+    renderPresetOptions();
+  } else {
+    const select = document.getElementById('game-preset');
+    if (select && select.value !== 'custom') {
+      select.value = 'custom';
+    }
+  }
+}
+
 // Setup settings
 function setupSettings() {
+  renderPresetOptions();
+  
   // Resource knobs
   document.getElementById('batch-size')?.addEventListener('input', (e) => {
     const val = Math.min(Math.max(200, parseInt(e.target.value) || 200), 10000);
@@ -127,19 +237,40 @@ function setupSettings() {
   });
   
   // Game settings
-  document.getElementById('game-preset')?.addEventListener('change', (e) => {
-    applyPreset(e.target.value);
-  });
+  const presetSelect = document.getElementById('game-preset');
+  if (presetSelect) {
+    presetSelect.addEventListener('change', (e) => {
+      const value = e.target.value;
+      if (value === 'custom') {
+        markCustomPreset();
+        saveSettings();
+        return;
+      }
+      
+      const preset = applyGamePreset(value);
+      if (preset) {
+        saveSettings();
+        renderPresetOptions();
+        updateUIFromState();
+        const event = new CustomEvent('gameSettingsChanged');
+        document.dispatchEvent(event);
+      }
+    });
+  }
   
   document.getElementById('max-main')?.addEventListener('input', (e) => {
     State.settings.game.maxMain = parseInt(e.target.value) || 49;
     updateGridConfig(State.settings.game.maxMain, State.settings.game.mainCount);
+    renderCurrentTicket(State.currentTicket);
+    markCustomPreset();
     saveSettings();
   });
   
   document.getElementById('main-count')?.addEventListener('input', (e) => {
     State.settings.game.mainCount = parseInt(e.target.value) || 6;
     updateGridConfig(State.settings.game.maxMain, State.settings.game.mainCount);
+    renderCurrentTicket(State.currentTicket);
+    markCustomPreset();
     saveSettings();
     
     // Trigger prize map update
@@ -151,11 +282,14 @@ function setupSettings() {
     State.settings.game.hasBonus = e.target.checked;
     const row = document.getElementById('max-bonus-row');
     if (row) row.style.display = e.target.checked ? 'block' : 'none';
+    renderCurrentTicket(State.currentTicket);
+    markCustomPreset();
     saveSettings();
   });
   
   document.getElementById('max-bonus')?.addEventListener('input', (e) => {
     State.settings.game.maxBonus = parseInt(e.target.value) || 10;
+    markCustomPreset();
     saveSettings();
   });
   
@@ -266,61 +400,16 @@ function setupI18n() {
   // Language is set by controller.js bindings
 }
 
-// Apply preset
-function applyPreset(preset) {
-  if (preset === 'classic6') {
-    State.settings.game = { maxMain: 49, mainCount: 6, hasBonus: true, maxBonus: 10 };
-    State.settings.prizeMap = '6,1=JACKPOT\n6,0=1000000\n5,1=100000\n5,0=10000\n4,1=1000\n4,0=100\n3,1=50\n3,0=10\n2,1=5';
-  } else if (preset === 'mini5') {
-    State.settings.game = { maxMain: 35, mainCount: 5, hasBonus: false, maxBonus: 0 };
-    State.settings.prizeMap = '5=JACKPOT\n4=100000\n3=5000\n2=100';
-  } else if (preset === 'custom') {
-    // Keep current settings
-    return;
-  }
-  
-  // Update UI
-  const maxMainInput = document.getElementById('max-main');
-  const mainCountInput = document.getElementById('main-count');
-  const hasBonusInput = document.getElementById('has-bonus');
-  const maxBonusInput = document.getElementById('max-bonus');
-  const prizeMapText = document.getElementById('prize-map-text');
-  const maxBonusRow = document.getElementById('max-bonus-row');
-  
-  if (maxMainInput) maxMainInput.value = State.settings.game.maxMain;
-  if (mainCountInput) mainCountInput.value = State.settings.game.mainCount;
-  if (hasBonusInput) hasBonusInput.checked = State.settings.game.hasBonus;
-  if (maxBonusInput) maxBonusInput.value = State.settings.game.maxBonus;
-  if (prizeMapText) prizeMapText.value = State.settings.prizeMap;
-  if (maxBonusRow) maxBonusRow.style.display = State.settings.game.hasBonus ? 'block' : 'none';
-  
-  updateGridConfig(State.settings.game.maxMain, State.settings.game.mainCount);
-  
-  // Trigger prize map update
-  const event = new CustomEvent('gameSettingsChanged');
-  document.dispatchEvent(event);
-  
-  saveSettings();
-}
-
 // Parse prize map
 function parsePrizeMap() {
-  const text = document.getElementById('prize-map-text')?.value || '';
-  const visual = document.getElementById('prize-map-visual');
-  
-  if (!visual) return;
-  
-  const lines = text.split('\n').filter(l => l.trim());
-  visual.innerHTML = '';
-  
-  lines.forEach(line => {
-    const row = document.createElement('div');
-    row.className = 'prize-row';
-    row.textContent = line;
-    visual.appendChild(row);
-  });
-  
-  State.settings.prizeMap = text;
+  const textarea = document.getElementById('prize-map-text');
+  if (!textarea) return;
+
+  State.settings.prizeMap = textarea.value || '';
+  markCustomPreset();
+  saveSettings();
+  updatePrizeMapUI();
+  showToast(T('prizeMapSynced') || 'Prize map updated', 'success');
 }
 
 // Load currency to modal
@@ -376,12 +465,18 @@ function initWorker() {
     updateKPIs();
     updateCharts(true);
     renderLogs();
+    smoothedRate = 0;
+    renderCurrentTicket(State.currentTicket || []);
+    updateDayResult();
   });
   
   document.addEventListener('statsReset', () => {
     updateKPIs();
     updateCharts(true);
     renderLogs();
+    smoothedRate = 0;
+    renderCurrentTicket(State.currentTicket || []);
+    updateDayResult();
   });
 }
 
@@ -391,6 +486,10 @@ function handleWorkerTick(data) {
   
   // Update stats from worker
   Object.assign(State.stats, workerStats);
+  smoothedRate = smoothedRate === 0
+    ? workerStats.rate
+    : (smoothedRate * 0.8) + (workerStats.rate * 0.2);
+  State.stats.rate = smoothedRate;
   
   // Process rows synchronously
   rows.forEach(row => {
@@ -417,6 +516,7 @@ function handleWorkerTick(data) {
   // Pulse current ticket (last one in batch)
   if (rows.length > 0 && rows[rows.length - 1].ticket) {
     State.currentTicket = rows[rows.length - 1].ticket;
+    renderCurrentTicket(State.currentTicket);
     pulseCurrentTicket(State.currentTicket);
     
     // Highlight matches if any
@@ -542,15 +642,32 @@ function updateStatus() {
 // Update day result
 function updateDayResult() {
   const el = document.getElementById('day-result');
-  if (!el || !State.dayResult) return;
-  
-  const { matches, bonus, prize } = State.dayResult;
-  if (matches === 0 && prize === 0) {
-    el.textContent = '';
+  if (!el) return;
+
+  const statsDay = State?.stats?.days || 0;
+  const result = State?.dayResult;
+  if (!result || (statsDay === 0 && result.matches === 0 && result.prize === 0)) {
+    const placeholder = T('waitingForResult') || T('logNoResults') || 'در انتظار نتایج...';
+    el.innerHTML = `<span class="draw-summary__placeholder">${placeholder}</span>`;
     return;
   }
-  
-  el.textContent = `Day ${State.stats.days}: ${matches} matches${bonus ? ' + bonus' : ''} - ${fmtDual(prize)}`;
+
+  const dayLabel = `${T('days') || 'روز'} ${statsDay.toLocaleString()}`;
+  const matchesLabel = result.matches > 0
+    ? `${result.matches} ${(T('match') || T('matches') || 'تطابق')}`
+    : (T('logResultLoss') || 'بدون برد');
+  const prizeLabel = fmtDual(result.prize);
+  const parts = [
+    `<span class="draw-summary__label">${dayLabel}</span>`,
+    `<span class="draw-summary__value">${matchesLabel}</span>`
+  ];
+
+  if (result.bonus) {
+    parts.push(`<span class="draw-summary__badge">+ ${T('bonus') || 'بونس'}</span>`);
+  }
+
+  parts.push(`<span class="draw-summary__prize">${prizeLabel}</span>`);
+  el.innerHTML = parts.join('');
 }
 
 // Update UI from state
@@ -567,10 +684,22 @@ function updateUIFromState() {
   document.getElementById('stop-on-jackpot').checked = s.cfg.stopOnJackpot;
   document.getElementById('limit-kind').value = s.cfg.limit.kind;
   document.getElementById('limit-value').value = s.cfg.limit.value;
+  const presetSelect = document.getElementById('game-preset');
+  const presetKey = s.preset || 'custom';
+  if (presetSelect) {
+    if (!presetSelect.querySelector(`option[value=\"${presetKey}\"]`)) {
+      renderPresetOptions();
+    }
+    presetSelect.value = presetKey;
+  }
   document.getElementById('max-main').value = s.game.maxMain;
   document.getElementById('main-count').value = s.game.mainCount;
   document.getElementById('has-bonus').checked = s.game.hasBonus;
   document.getElementById('max-bonus').value = s.game.maxBonus;
+  const maxBonusRow = document.getElementById('max-bonus-row');
+  if (maxBonusRow) {
+    maxBonusRow.style.display = s.game.hasBonus ? 'block' : 'none';
+  }
   document.getElementById('ticket-price').value = s.pricing.ticketPrice;
   document.getElementById('tickets-per-day').value = s.pricing.ticketsPerDay;
   document.getElementById('total-tickets').value = s.pricing.totalTickets;
@@ -578,6 +707,8 @@ function updateUIFromState() {
   
   updateGridConfig(s.game.maxMain, s.game.mainCount);
   updateKPIs();
+  renderCurrentTicket(State.currentTicket);
+  updateDayResult();
 }
 
 // Show toast
@@ -607,5 +738,15 @@ document.addEventListener('currencyChanged', () => {
   renderLogs();
 });
 
-export { initUI, showToast };
+document.addEventListener('languageChanged', () => {
+  renderPresetOptions();
+});
 
+document.addEventListener('presetChanged', (e) => {
+  if (e.detail?.preset) {
+    State.settings.preset = e.detail.preset;
+  }
+  renderPresetOptions();
+});
+
+export { initUI, showToast };
