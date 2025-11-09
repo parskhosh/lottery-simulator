@@ -221,16 +221,39 @@ function setupAllBindings() {
       // Generate target
       const max = State.settings.game.maxMain;
       const count = State.settings.game.mainCount;
-      const numbers = [];
-      for (let i = 1; i <= max; i++) numbers.push(i);
-      for (let i = numbers.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+      const useFixed = !State.settings.target.dailyRandom;
+      let targetMain = [];
+      if (useFixed && Array.isArray(State.settings.target.fixedMain)) {
+        targetMain = State.settings.target.fixedMain
+          .map((n) => parseInt(n, 10))
+          .filter((n) => Number.isFinite(n) && n >= 1 && n <= max)
+          .slice(0, count);
       }
-      const target = {
-        main: numbers.slice(0, count).sort((a, b) => a - b),
-        bonus: State.settings.game.hasBonus ? Math.floor(Math.random() * State.settings.game.maxBonus) + 1 : null
-      };
+      let targetBonus = null;
+      if (useFixed && State.settings.game.hasBonus) {
+        const b = parseInt(State.settings.target.fixedBonus, 10);
+        if (Number.isFinite(b) && b >= 1 && b <= State.settings.game.maxBonus) {
+          targetBonus = b;
+        }
+      }
+      let target;
+      if (useFixed && targetMain.length === count) {
+        target = {
+          main: [...targetMain].sort((a, b) => a - b),
+          bonus: State.settings.game.hasBonus ? targetBonus : null
+        };
+      } else {
+        const numbers = [];
+        for (let i = 1; i <= max; i++) numbers.push(i);
+        for (let i = numbers.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+        }
+        target = {
+          main: numbers.slice(0, count).sort((a, b) => a - b),
+          bonus: State.settings.game.hasBonus ? Math.floor(Math.random() * State.settings.game.maxBonus) + 1 : null
+        };
+      }
       worker.postMessage({ t: 'target', data: target });
       
       worker.postMessage({ t: 'start' });

@@ -29,6 +29,16 @@
 .fa-solid.fa-rotate::before { content: '\f0e2'; } /* Reset icon */
 .fa-solid.fa-download::before { content: '\f019'; } /* Download icon */
 .fa-solid.fa-triangle-exclamation::before { content: '\f071'; } /* Warning icon */
+.fa-solid.fa-circle-question::before { content: '\f059'; }
+.fa-solid.fa-hand-pointer::before { content: '\f25a'; }
+.fa-solid.fa-lock::before { content: '\f023'; }
+.fa-solid.fa-fire::before { content: '\f06d'; }
+.fa-solid.fa-xmark::before { content: '\f00d'; }
+.fa-solid.fa-shuffle::before { content: '\f074'; }
+.fa-solid.fa-layer-group::before { content: '\f5fd'; }
+.fa-solid.fa-plus::before { content: '\f067'; }
+.fa-solid.fa-trash::before { content: '\f1f8'; }
+.fa-solid.fa-star::before { content: '\f005'; }
 
 /* Fallback for browsers that don't support woff2 */
 @supports not (font-display: block) {

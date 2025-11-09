@@ -1,11 +1,7 @@
 // Prize Map Editor - User-friendly prize configuration
 import { State, saveSettings, GAME_PRESETS, applyGamePreset, generateDefaultPrizeMap } from './state.js';
+import { Currency } from './currency.js';
 import { T } from './i18n.js';
-
-const BONUS_SYMBOL = {
-  0: '✗',
-  1: '✓'
-};
 
 function normalizePrizeKey(matches, bonus) {
   const safeMain = Number.isFinite(matches) ? Math.max(0, Math.floor(matches)) : 0;
@@ -89,10 +85,23 @@ function sortPrizeKeys(keys) {
   });
 }
 
+function formatPrizeLabel(matches, bonus) {
+  if (bonus && matches === 0) {
+    const template = T('prizeLabelBonusOnly') || 'Bonus only prize';
+    return template.replace('{count}', matches);
+  }
+  if (bonus) {
+    const template = T('prizeLabelBonus') || 'Prize for {count} matches + bonus';
+    return template.replace('{count}', matches);
+  }
+  const template = T('prizeLabel') || 'Prize for {count} matches';
+  return template.replace('{count}', matches);
+}
+
 function prizeValueToInput(prize) {
   if (prize === -1) return 'JACKPOT';
   if (prize === 0) return '0';
-  if (Number.isFinite(prize)) return String(prize);
+  if (Number.isFinite(prize)) return prize.toLocaleString('en-US');
   return '';
 }
 
@@ -128,138 +137,66 @@ function updatePrizeMapUI() {
   const container = document.getElementById('prize-map-visual');
   if (!container) return;
   
-  const game = State.settings.game;
-  const normalizedMap = parsePrizeMapToMap(State.settings.prizeMap);
-  const defaultMap = parsePrizeMapToMap(generateDefaultPrizeMap(game.mainCount, game.hasBonus));
-  const keys = sortPrizeKeys(mergePrizeKeys(game, normalizedMap, defaultMap));
-  
   container.innerHTML = '';
-
-  const summary = document.createElement('div');
-  summary.className = 'prize-summary';
-  summary.innerHTML = `
-    <div class="summary-item">
-      <span>${T('prizeSummaryMain') || 'Main balls'}</span>
-      <strong>${game.mainCount}/${game.maxMain}</strong>
-    </div>
-    ${game.hasBonus ? `
-      <div class="summary-item">
-        <span>${T('prizeSummaryBonus') || 'Bonus range'}</span>
-        <strong>1-${game.maxBonus}</strong>
-      </div>` : ''}
-    <div class="summary-item">
-      <span>${T('prizeSummaryTiers') || 'Payout tiers'}</span>
-      <strong>${keys.length}</strong>
-    </div>
-    <div class="summary-item">
-      <span>${T('prizeSummaryFilled') || 'Configured'}</span>
-      <strong>${normalizedMap.size}/${keys.length}</strong>
-    </div>
-  `;
-  container.appendChild(summary);
   
-  const header = document.createElement('div');
-  header.className = 'prize-map-header';
-  header.innerHTML = `
-    <div class="prize-map-header-main">
-      <h4>${T('prizeMap')} • ${game.mainCount}/${game.maxMain}${game.hasBonus ? ` + ${T('hasBonus') || 'Bonus'} (${game.maxBonus})` : ''}</h4>
-      <p class="prize-map-subtitle">${T('prizeSummaryHint') || 'Adjust payouts and keep raw values in sync.'}</p>
-    </div>
-    <div class="prize-map-actions">
-      <button id="btn-generate-prize-map" class="btn btn-sm btn-primary">${T('generate') || 'Generate'}</button>
-      <select id="prize-preset-select" class="prize-preset-select"></select>
-    </div>
-  `;
-  container.appendChild(header);
-  
-  const presetSelect = header.querySelector('#prize-preset-select');
-  hydratePresetSelect(presetSelect);
-  if (presetSelect) {
-    const presetKey = State.settings.preset && GAME_PRESETS[State.settings.preset]
-      ? State.settings.preset
-      : 'custom';
-    presetSelect.value = presetKey;
+  const map = parsePrizeMapToMap(State.settings.prizeMap);
+  const keys = sortPrizeKeys(mergePrizeKeys(State.settings.game, map));
+  if (keys.length === 0) {
+    container.textContent = T('noPrizeData') || 'No prize data available';
+    return;
   }
   
-  const table = document.createElement('table');
-  table.className = 'prize-map-table';
-  
-  const thead = document.createElement('thead');
-  thead.innerHTML = `
-    <tr>
-      <th>${T('match') || 'Match'}</th>
-      ${game.hasBonus ? `<th>${T('bonus') || 'Bonus'}</th>` : ''}
-      <th>${T('prize') || 'Prize'}</th>
-      <th>${T('action') || 'Action'}</th>
-    </tr>
-  `;
-  table.appendChild(thead);
-  
-  const tbody = document.createElement('tbody');
+  const fragment = document.createDocumentFragment();
+  const unitLabel = Currency.base.sym || '?????';
+  const jackpotMatches = State.settings.game.mainCount;
   
   keys.forEach((key) => {
-    const [matchesRaw, bonusRaw] = key.split(',').map((n) => Number.parseInt(n, 10) || 0);
-    const matches = matchesRaw;
-    const bonus = bonusRaw > 0 ? 1 : 0;
-    const isJackpot = matches === game.mainCount && (game.hasBonus ? bonus === 1 : true);
-    const shouldRender = matches >= 2 || normalizedMap.has(key);
-    if (!shouldRender) return;
+    const [matches, bonus] = key.split(',').map((n) => Number.parseInt(n, 10) || 0);
+    const prize = map.get(key);
+    const label = formatPrizeLabel(matches, bonus);
+    const tier = document.createElement('div');
+    const isJackpot = prize === -1 || matches === jackpotMatches;
+    tier.className = `prize-tier${isJackpot ? ' prize-tier--jackpot' : ''}`;
     
-    const row = document.createElement('tr');
-    row.className = 'prize-row';
-    
-    const matchCell = document.createElement('td');
-    matchCell.className = 'match-cell';
-    matchCell.textContent = isJackpot ? 'JACKPOT' : `${matches}/${game.mainCount}`;
-    row.appendChild(matchCell);
-    
-    if (game.hasBonus) {
-      const bonusCell = document.createElement('td');
-      bonusCell.className = 'bonus-cell';
-      bonusCell.textContent = BONUS_SYMBOL[bonus];
-      row.appendChild(bonusCell);
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'prize-tier__label';
+    const title = document.createElement('span');
+    title.textContent = label;
+    labelWrap.appendChild(title);
+    if (bonus > 0) {
+      const tag = document.createElement('span');
+      tag.className = 'prize-tier__tag';
+      tag.textContent = T('bonus') || 'Bonus';
+      labelWrap.appendChild(tag);
     }
     
-    const prizeCell = document.createElement('td');
-    prizeCell.className = 'prize-cell';
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'prize-tier__input';
+    const unit = document.createElement('span');
+    unit.className = 'prize-tier__unit';
+    unit.textContent = unitLabel;
     const input = document.createElement('input');
     input.type = 'text';
+    input.inputMode = 'numeric';
     input.className = 'prize-input';
     input.dataset.key = key;
+    input.value = prizeValueToInput(prize);
+    inputWrap.appendChild(unit);
+    inputWrap.appendChild(input);
     
-    const currentPrize = normalizedMap.get(key);
-    
-    if (normalizedMap.has(key)) {
-      input.value = prizeValueToInput(normalizedMap.get(key));
-    } else if (defaultMap.has(key)) {
-      input.placeholder = prizeValueToInput(defaultMap.get(key));
-    } else {
-      input.placeholder = '0';
-    }
-    
-    prizeCell.appendChild(input);
-    row.appendChild(prizeCell);
-    
-    const actionCell = document.createElement('td');
-    actionCell.className = 'action-cell';
     if (isJackpot) {
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = '★';
-      actionCell.appendChild(badge);
-    }
-    row.appendChild(actionCell);
-    
-    if (!currentPrize && !isJackpot) {
-      row.classList.add('missing');
-      row.title = T('prizeMissingHint') || 'No payout configured for this tier';
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-star prize-tier__icon';
+      icon.setAttribute('aria-hidden', 'true');
+      inputWrap.appendChild(icon);
     }
     
-    tbody.appendChild(row);
+    tier.appendChild(labelWrap);
+    tier.appendChild(inputWrap);
+    fragment.appendChild(tier);
   });
   
-  table.appendChild(tbody);
-  container.appendChild(table);
+  container.appendChild(fragment);
   
   const textarea = document.getElementById('prize-map-text');
   if (textarea) {
@@ -381,6 +318,10 @@ document.addEventListener('gameSettingsChanged', () => {
 });
 
 document.addEventListener('languageChanged', () => {
+  updatePrizeMapUI();
+});
+
+document.addEventListener('currencyChanged', () => {
   updatePrizeMapUI();
 });
 

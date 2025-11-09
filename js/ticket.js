@@ -1,5 +1,6 @@
 // Ticket builder module - Pinned/Preferred/Excluded model
 import { State } from './state.js';
+import { T } from './i18n.js';
 
 let numberGridEl = null;
 let maxNumber = 49;
@@ -17,9 +18,9 @@ function initGrid(container) {
 // Setup mode selector
 function setupModeSelector() {
   const setupHandlers = () => {
-    const buttons = document.querySelectorAll('.segmented-btn');
+    const buttons = document.querySelectorAll('.tool-toggle, .segmented-btn');
     if (buttons.length === 0) {
-      console.warn('No segmented buttons found');
+      console.warn('No tool toggle buttons found');
       return;
     }
     
@@ -29,7 +30,7 @@ function setupModeSelector() {
         e.stopPropagation();
         
         try {
-          document.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tool-toggle, .segmented-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           currentMode = btn.dataset.mode || 'select';
           
@@ -84,36 +85,57 @@ function renderGrid() {
 }
 
 // Handle cell click based on current mode
-function handleCellClick(num, cell) {
+function handleCellClick(num) {
   try {
-    // Remove from all sets first (exclusivity)
-    State.pinnedNumbers.delete(num);
-    State.preferredNumbers.delete(num);
-    State.excludedNumbers.delete(num);
-    State.selectedNumbers = State.selectedNumbers.filter(n => n !== num);
-    
-    cell.classList.remove('pinned', 'preferred', 'excluded', 'selected');
+    const wasSelected = State.selectedNumbers.includes(num);
+    const wasPinned = State.pinnedNumbers.has(num);
+    const wasPreferred = State.preferredNumbers.has(num);
+    const wasExcluded = State.excludedNumbers.has(num);
+    const totalSelected = State.selectedNumbers.length + State.pinnedNumbers.size;
     
     if (currentMode === 'select') {
-      // Toggle selection
-      if (State.selectedNumbers.length < mainCount) {
+      if (wasSelected) {
+        State.selectedNumbers = State.selectedNumbers.filter(n => n !== num);
+      } else {
+        if (totalSelected >= mainCount) {
+          const message = T ? (T('selectLimitWarning') || '') : '';
+          showToast(message || `حداکثر ${mainCount} عدد`, 'warn');
+          return;
+        }
         State.selectedNumbers.push(num);
-        cell.classList.add('selected');
+        State.selectedNumbers.sort((a, b) => a - b);
       }
     } else if (currentMode === 'pin') {
-      // Check pin limit
-      if (State.pinnedNumbers.size >= mainCount) {
-        showToast(`Cannot pin more than ${mainCount} numbers`, 'error');
-        return;
+      if (wasPinned) {
+        State.pinnedNumbers.delete(num);
+      } else {
+        if (State.pinnedNumbers.size >= mainCount) {
+          const message = T ? (T('pinLimitWarning') || '') : '';
+          showToast(message || `بیش از ${mainCount} عدد نمی‌توان قفل کرد`, 'warn');
+          return;
+        }
+        State.selectedNumbers = State.selectedNumbers.filter(n => n !== num);
+        State.preferredNumbers.delete(num);
+        State.excludedNumbers.delete(num);
+        State.pinnedNumbers.add(num);
       }
-      State.pinnedNumbers.add(num);
-      cell.classList.add('pinned');
     } else if (currentMode === 'prefer') {
-      State.preferredNumbers.add(num);
-      cell.classList.add('preferred');
+      if (wasPreferred) {
+        State.preferredNumbers.delete(num);
+      } else {
+        State.selectedNumbers = State.selectedNumbers.filter(n => n !== num);
+        State.excludedNumbers.delete(num);
+        State.preferredNumbers.add(num);
+      }
     } else if (currentMode === 'exclude') {
-      State.excludedNumbers.add(num);
-      cell.classList.add('excluded');
+      if (wasExcluded) {
+        State.excludedNumbers.delete(num);
+      } else {
+        State.selectedNumbers = State.selectedNumbers.filter(n => n !== num);
+        State.pinnedNumbers.delete(num);
+        State.preferredNumbers.delete(num);
+        State.excludedNumbers.add(num);
+      }
     }
     
     renderGrid();
@@ -182,47 +204,9 @@ function notifySelectionChange() {
 // Quick pick - respects Pinned/Preferred/Excluded
 function quickPick() {
   try {
-    // Start with Pinned
-    const ticket = [...State.pinnedNumbers];
-    
-    // Fill from Preferred uniformly
-    const preferred = Array.from(State.preferredNumbers);
-    if (preferred.length > 0) {
-      // Shuffle preferred
-      for (let i = preferred.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [preferred[i], preferred[j]] = [preferred[j], preferred[i]];
-      }
-      
-      const needed = mainCount - ticket.length;
-      ticket.push(...preferred.slice(0, needed));
-    }
-    
-    // Fill remaining from Allowed Others
-    if (ticket.length < mainCount) {
-      const allowed = [];
-      for (let i = 1; i <= maxNumber; i++) {
-        if (!State.pinnedNumbers.has(i) && 
-            !State.preferredNumbers.has(i) && 
-            !State.excludedNumbers.has(i) &&
-            !ticket.includes(i)) {
-          allowed.push(i);
-        }
-      }
-      
-      // Shuffle allowed
-      for (let i = allowed.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allowed[i], allowed[j]] = [allowed[j], allowed[i]];
-      }
-      
-      const needed = mainCount - ticket.length;
-      ticket.push(...allowed.slice(0, needed));
-    }
-    
-    // Sort and set as selection
-    State.selectedNumbers = ticket.sort((a, b) => a - b);
-    
+    const generated = generateTicketFromState();
+    const pins = new Set(State.pinnedNumbers);
+    State.selectedNumbers = generated.main.filter(n => !pins.has(n)).slice(0, Math.max(0, mainCount - pins.size));
     renderGrid();
     updateAddTicketButton();
     notifySelectionChange();
@@ -230,6 +214,39 @@ function quickPick() {
     console.error('Quick pick error:', e);
     showToast('Quick pick failed', 'error');
   }
+}
+
+function resetGrid() {
+  State.selectedNumbers = [];
+  State.pinnedNumbers.clear();
+  State.preferredNumbers.clear();
+  State.excludedNumbers.clear();
+  renderGrid();
+  updateAddTicketButton();
+  notifySelectionChange();
+}
+
+function applyFilter(type) {
+  const predicates = {
+    even: (n) => n % 2 === 0,
+    odd: (n) => n % 2 === 1,
+    prime: (n) => isPrime(n),
+    low: (n) => n <= Math.floor(maxNumber / 2),
+    high: (n) => n > Math.floor(maxNumber / 2)
+  };
+  const predicate = predicates[type];
+  if (!predicate) return;
+  for (let i = 1; i <= maxNumber; i++) {
+    if (!predicate(i)) {
+      State.selectedNumbers = State.selectedNumbers.filter(n => n !== i);
+      State.pinnedNumbers.delete(i);
+      State.preferredNumbers.delete(i);
+      State.excludedNumbers.add(i);
+    }
+  }
+  renderGrid();
+  updateAddTicketButton();
+  notifySelectionChange();
 }
 
 // Clear selection
@@ -266,12 +283,20 @@ function clearExcluded() {
 
 // Add ticket to queue
 function addTicket() {
-  if (State.selectedNumbers.length !== mainCount) return;
+  const ticketNumbers = getManualTicketNumbers();
+  if (ticketNumbers.length !== mainCount) {
+    showToast(T ? (T('selectLimitWarning') || '') : 'انتخاب کامل نیست', 'warn');
+    return;
+  }
   
-  const ticket = [...State.selectedNumbers].sort((a, b) => a - b);
+  const ticket = {
+    main: ticketNumbers,
+    bonus: null
+  };
   State.ticketQueue.push(ticket);
   
   State.selectedNumbers = [];
+  // Keep pinned selections so user can reuse them
   
   renderGrid();
   updateAddTicketButton();
@@ -312,9 +337,12 @@ function renderQueue() {
   container.innerHTML = '';
   
   State.ticketQueue.forEach((ticket, idx) => {
+    const normalized = normalizeTicket(ticket);
     const chip = document.createElement('div');
     chip.className = 'queue-chip';
-    chip.textContent = `#${idx + 1} [${ticket.join('-')}]`;
+    const mainLabel = normalized.main.length ? normalized.main.join('-') : '--';
+    const bonusLabel = Number.isFinite(normalized.bonus) ? ` + ${normalized.bonus}` : '';
+    chip.textContent = `#${idx + 1} [${mainLabel}${bonusLabel}]`;
     
     const remove = document.createElement('span');
     remove.className = 'remove';
@@ -330,21 +358,22 @@ function renderQueue() {
 function updateAddTicketButton() {
   const btn = document.getElementById('btn-add-ticket');
   if (btn) {
-    btn.disabled = State.selectedNumbers.length !== mainCount;
+    const total = State.selectedNumbers.length + State.pinnedNumbers.size;
+    btn.disabled = total !== mainCount;
   }
 }
 
 // Highlight matched numbers
-function highlightMatches(numbers) {
+function highlightMatches(ticket) {
   if (!numberGridEl) return;
   
-  // Clear previous matches
+  const normalized = normalizeTicket(ticket);
+  
   numberGridEl.querySelectorAll('.number-cell').forEach(cell => {
     cell.classList.remove('matched');
   });
   
-  // Highlight matched
-  numbers.forEach(num => {
+  normalized.main.forEach(num => {
     const cell = numberGridEl.querySelector(`[data-number="${num}"]`);
     if (cell) {
       cell.classList.add('matched');
@@ -354,10 +383,12 @@ function highlightMatches(numbers) {
 }
 
 // Pulse current ticket
-function pulseCurrentTicket(numbers) {
+function pulseCurrentTicket(ticket) {
   if (!numberGridEl) return;
   
-  numbers.forEach(num => {
+  const normalized = normalizeTicket(ticket);
+  
+  normalized.main.forEach(num => {
     const cell = numberGridEl.querySelector(`[data-number="${num}"]`);
     if (cell) {
       cell.classList.add('current');
@@ -369,50 +400,10 @@ function pulseCurrentTicket(numbers) {
 // Get next ticket from queue or generate (respecting Pinned/Preferred/Excluded)
 function getNextTicket() {
   if (State.ticketQueue.length > 0) {
-    return [...State.ticketQueue.shift()];
+    return normalizeTicket(State.ticketQueue.shift());
   }
   
-  // Generate respecting constraints
-  const ticket = [];
-  
-  // Start with Pinned
-  ticket.push(...State.pinnedNumbers);
-  
-  // Fill from Preferred
-  if (ticket.length < mainCount) {
-    const preferred = Array.from(State.preferredNumbers);
-    // Shuffle
-    for (let i = preferred.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [preferred[i], preferred[j]] = [preferred[j], preferred[i]];
-    }
-    const needed = mainCount - ticket.length;
-    ticket.push(...preferred.slice(0, needed));
-  }
-  
-  // Fill from allowed
-  if (ticket.length < mainCount) {
-    const allowed = [];
-    for (let i = 1; i <= maxNumber; i++) {
-      if (!State.pinnedNumbers.has(i) && 
-          !State.preferredNumbers.has(i) && 
-          !State.excludedNumbers.has(i) &&
-          !ticket.includes(i)) {
-        allowed.push(i);
-      }
-    }
-    
-    // Shuffle
-    for (let i = allowed.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allowed[i], allowed[j]] = [allowed[j], allowed[i]];
-    }
-    
-    const needed = mainCount - ticket.length;
-    ticket.push(...allowed.slice(0, needed));
-  }
-  
-  return ticket.sort((a, b) => a - b);
+  return generateTicketFromState();
 }
 
 // Show toast helper
@@ -421,15 +412,100 @@ function showToast(message, type = 'info') {
   document.dispatchEvent(event);
 }
 
+function isPrime(num) {
+  if (num < 2) return false;
+  for (let i = 2; i * i <= num; i++) {
+    if (num % i === 0) return false;
+  }
+  return true;
+}
+
+function shuffle(list) {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function generateTicketFromState() {
+  const ticket = new Set();
+  State.pinnedNumbers.forEach((n) => ticket.add(n));
+  if (ticket.size > mainCount) {
+    return {
+      main: Array.from(ticket).slice(0, mainCount).sort((a, b) => a - b),
+      bonus: null
+    };
+  }
+  const preferredPool = shuffle(
+    Array.from(State.preferredNumbers).filter((n) => !ticket.has(n) && !State.excludedNumbers.has(n))
+  );
+  preferredPool.forEach((n) => {
+    if (ticket.size < mainCount) ticket.add(n);
+  });
+  if (ticket.size < mainCount) {
+    const allowed = [];
+    for (let i = 1; i <= maxNumber; i++) {
+      if (ticket.has(i)) continue;
+      if (State.pinnedNumbers.has(i)) continue;
+      if (State.preferredNumbers.has(i)) continue;
+      if (State.excludedNumbers.has(i)) continue;
+      allowed.push(i);
+    }
+    shuffle(allowed).forEach((n) => {
+      if (ticket.size < mainCount) ticket.add(n);
+    });
+  }
+  return {
+    main: Array.from(ticket).slice(0, mainCount).sort((a, b) => a - b),
+    bonus: null
+  };
+}
+
+function addRandomTicketsToQueue(count = 1) {
+  const safe = Math.max(1, Math.min(500, Number.parseInt(count, 10) || 1));
+  for (let i = 0; i < safe; i++) {
+    State.ticketQueue.push(generateTicketFromState());
+  }
+  renderQueue();
+  const event = new CustomEvent('ticketQueueChanged', { detail: { queue: State.ticketQueue } });
+  document.dispatchEvent(event);
+  const message = T ? (T('queueRandomSuccess') || 'Random tickets added to queue') : 'Random tickets added to queue';
+  showToast(message, 'success');
+}
+
+function normalizeTicket(entry) {
+  if (Array.isArray(entry)) {
+    return { main: [...entry], bonus: null };
+  }
+  if (entry && Array.isArray(entry.main)) {
+    return {
+      main: [...entry.main],
+      bonus: Number.isFinite(entry.bonus) ? entry.bonus : null
+    };
+  }
+  return { main: [], bonus: null };
+}
+
+function getManualTicketNumbers() {
+  const combined = new Set(State.pinnedNumbers);
+  State.selectedNumbers.forEach((n) => combined.add(n));
+  return Array.from(combined).sort((a, b) => a - b).slice(0, mainCount);
+}
+
 export {
   initGrid,
   updateGridConfig,
   quickPick,
+  resetGrid,
+  applyFilter,
   clearSelection,
   clearPinned,
   clearPreferred,
   clearExcluded,
   addTicket,
+  addRandomTicketsToQueue,
   clearQueue,
   renderQueue,
   highlightMatches,

@@ -152,7 +152,7 @@ function workerBody(scope) {
         });
       }
 
-      const ticket = ticketQueue.shift();
+      const ticket = normalizeQueuedTicket(ticketQueue.shift(), settings);
       const matches = matchNumbers(ticket.main, target.main);
       const bonusMatch =
         settings.game.hasBonus && ticket.bonus === target.bonus;
@@ -169,6 +169,7 @@ function workerBody(scope) {
         idx: stats.tickets + i + 1,
         main: ticket.main,
         bonus: ticket.bonus,
+        ticket: ticket.main.slice(),
         matches,
         bonusMatch,
         prize,
@@ -214,7 +215,7 @@ function workerBody(scope) {
       if (shouldStop()) {
         break;
       }
-    }
+  }
 
     stats.tickets += rows.length;
 
@@ -332,11 +333,30 @@ function workerBody(scope) {
   });
 }
 
-if (typeof document === 'undefined') {
-  workerBody(self);
-}
+  if (typeof document === 'undefined') {
+    workerBody(self);
+  }
 
-const workerSource = `(${workerBody.toString()})(self);`;
+  function normalizeQueuedTicket(entry, settings) {
+    if (!settings) {
+      return { main: [], bonus: null };
+    }
+    if (Array.isArray(entry)) {
+      return { main: [...entry], bonus: null };
+    }
+    if (entry && Array.isArray(entry.main)) {
+      return {
+        main: [...entry.main],
+        bonus: Number.isFinite(entry.bonus) ? entry.bonus : null
+      };
+    }
+    return {
+      main: generateNumbers(settings.game.maxMain, settings.game.mainCount, settings.excludedNumbers),
+      bonus: settings.game.hasBonus ? getRandomInt(1, settings.game.maxBonus) : null
+    };
+  }
+
+  const workerSource = `(${workerBody.toString()})(self);`;
 
 class InlineWorker {
   constructor() {

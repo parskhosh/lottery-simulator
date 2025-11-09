@@ -48,8 +48,8 @@ html[data-theme="dark"] {
 }
 
 :root {
-  /* Typography */
-  --radius: 18px;
+  /* Typography & radii */
+  --radius: 12px;
   --fa: "Peyda", "Vazirmatn", Tahoma, sans-serif;
   --en: "Roboto", "Segoe UI", Arial, sans-serif;
   
@@ -57,8 +57,8 @@ html[data-theme="dark"] {
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
+  --spacing-lg: 32px;
+  --spacing-xl: 48px;
   
   /* Transitions */
   --transition: 150ms ease;
@@ -68,8 +68,11 @@ html[data-theme="dark"] {
 /* body styles are in tokens.css - only add non-color styles here */
 body {
   font-family: var(--fa);
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.5;
   overflow-x: hidden;
+  color: var(--text);
+  background-color: var(--page);
   transition: background-color var(--transition-slow), color var(--transition-slow);
 }
 
@@ -85,9 +88,26 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h3 {
-  font-size: 1.1rem;
-  color: var(--accent);
+  position: relative;
+  padding-inline-start: 28px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--secondary);
+  text-shadow: 0 2px 4px rgba(53, 131, 246, 0.25);
   margin-bottom: var(--spacing-md);
+}
+
+h3::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  inset-inline-start: 0;
+  width: 16px;
+  height: 6px;
+  border-radius: 8px;
+  background: var(--secondary);
+  box-shadow: 0 2px 4px rgba(53, 131, 246, 0.25);
 }
 
 p {
@@ -123,5 +143,39 @@ p {
 ::selection {
   background: var(--accent);
   color: var(--bg);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+hr {
+  border: none;
+  border-top: 2px solid var(--divider, #29303D);
+  margin: var(--spacing-md) 0;
+}
+
+label,
+.form-label,
+.meta-label {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
 }
 

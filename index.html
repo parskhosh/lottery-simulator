@@ -7,34 +7,34 @@
   <style>
     /* Inline theme to ensure it loads immediately */
     html[data-theme="dark"] {
-      --page: #0C111C;
-      --box: #121829;
-      --border: #171F35;
+      --page: #0C1015;
+      --box: #13171F;
+      --border: #1B212C;
       --primary: #06FFFF;
-      --secondary: #6EA9FF;
-      --error: #D73D5E;
-      --text: #E8F0FF;
-      --muted: #97A4C7;
-      --ring: rgba(110, 169, 255, 0.35);
-      --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+      --secondary: #3583F6;
+      --error: #DB3458;
+      --text: #FFFFFF;
+      --muted: #818A9C;
+      --ring: rgba(6, 255, 255, 0.3);
+      --shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
     html[data-theme="light"] {
-      --page: #F7FAFF;
+      --page: #F4F7FB;
       --box: #FFFFFF;
-      --border: #DDE6F7;
-      --primary: #00C9C9;
-      --secondary: #4F8DFF;
-      --error: #D73D5E;
-      --text: #0D1B2A;
-      --muted: #5A6A85;
-      --ring: rgba(79, 141, 255, 0.25);
-      --shadow: 0 10px 30px rgba(13, 27, 42, 0.08);
+      --border: #DCE6F5;
+      --primary: #05C2C2;
+      --secondary: #4F7DFF;
+      --error: #E64262;
+      --text: #0F1A2B;
+      --muted: #5D6F93;
+      --ring: rgba(79, 125, 255, 0.2);
+      --shadow: 0 8px 24px rgba(15, 26, 43, 0.12);
     }
     body {
       background:
-        radial-gradient(60% 60% at 85% 0%, rgba(6, 255, 255, 0.1), transparent 65%),
-        radial-gradient(55% 55% at 10% 15%, rgba(110, 169, 255, 0.12), transparent 70%),
-        var(--page);
+        radial-gradient(55% 55% at 85% -10%, rgba(6, 255, 255, 0.1), transparent 60%),
+        radial-gradient(50% 50% at 10% 0%, rgba(53, 131, 246, 0.08), transparent 70%),
+        #0C1015;
       color: var(--text);
       margin: 0;
       padding: 0;
@@ -54,45 +54,35 @@
 
   <div id="app" class="layout">
     <header class="dashboard-header panel">
-      <div class="header-row">
-        <div class="header-meta">
-          <div class="header-chip-group">
-            <button class="header-chip active">راهنما</button>
-            <button class="header-chip ghost">تنظیمات از</button>
-            <button class="header-chip ghost">زبان</button>
-          </div>
-          <h1 class="header-title" data-i18n="title">شبیه‌ساز لاتاری حرفه‌ای</h1>
+      <div class="app-bar">
+        <div class="app-branding">
+          <span class="app-branding__tag" data-i18n="appSuite">سوئیت پیشرفته</span>
+          <h1 class="header-title" data-i18n="title">شبیه‌ساز پیشرفته لاتاری</h1>
         </div>
-        <div class="header-status">
-          <span class="status-chip" id="status-chip" data-i18n="statusIdle">بیکار</span>
-          <div class="status-metrics">
-            <span class="status-metric" id="rate-display">0 <span data-i18n="ticketsSec">تیکت/ثانیه</span></span>
-            <span class="status-metric" id="elapsed-display">00:00:00</span>
-          </div>
-        </div>
-        <div class="header-actions">
-          <label class="toggle header-toggle">
-            <input type="checkbox" id="stop-on-jackpot">
-            <span data-i18n="stopOnJackpot">توقف در جکپات</span>
+        <div class="app-quick-actions">
+          <label class="app-quick-actions__control">
+            <span data-i18n="language">زبان</span>
+            <select id="lang-select" data-hook="toggle-lang">
+              <option value="fa" data-i18n="persian">فارسی</option>
+              <option value="en" data-i18n="english">English</option>
+            </select>
           </label>
-          <div class="header-limit">
-            <label for="limit-kind" data-i18n="runLimit">حد اجرا</label>
-            <div class="limit-fields">
-              <select id="limit-kind">
-                <option value="tickets" data-i18n="tickets">تیکت</option>
-                <option value="minutes" data-i18n="minutes">دقیقه</option>
-                <option value="days" data-i18n="days">روز</option>
-              </select>
-              <input type="number" id="limit-value" min="0" value="0" placeholder="0=نامحدود">
-            </div>
-          </div>
-          <div class="header-buttons">
-            <button id="btn-start" data-hook="btn-start" class="btn btn-primary" data-i18n="start">شروع</button>
-            <button id="btn-pause" data-hook="btn-pause" class="btn btn-secondary" disabled data-i18n="pause">توقف موقت</button>
-            <button id="btn-stop" data-hook="btn-stop" class="btn btn-danger" disabled data-i18n="stop">توقف</button>
-            <button id="btn-reset" data-hook="btn-reset" class="btn btn-warn" data-i18n="reset">بازنشانی</button>
-            <button id="btn-export" data-hook="btn-export" class="btn btn-accent" data-i18n="exportCsv">خروجی CSV</button>
-          </div>
+          <label class="theme-switch" for="theme-toggle">
+            <span data-i18n="theme">تم</span>
+            <input type="checkbox" id="theme-toggle" role="switch" aria-label="Toggle theme">
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+            <select id="theme-select" data-hook="toggle-theme" class="visually-hidden">
+              <option value="dark" data-i18n="dark">تاریک</option>
+              <option value="light" data-i18n="light">روشن</option>
+            </select>
+          </label>
+          <button id="btn-currency" type="button" class="app-action" data-i18n="currencySettings">
+            تنظیمات ارز
+          </button>
+          <button type="button" class="app-help">
+            <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+            <span data-i18n="help">راهنما</span>
+          </button>
         </div>
       </div>
     </header>
@@ -102,19 +92,44 @@
       <div class="panel result-card">
         <div class="result-card__header">
           <div>
-            <h3>نتیجه بازی</h3>
-            <p class="result-card__subtitle">آخرین ترکیب ثبت‌شده در شبیه‌سازی</p>
+            <h3 data-i18n="resultTitle">نتیجه بازی</h3>
+            <p class="result-card__subtitle" data-i18n="resultSubtitle">کنترل ترکیب هدف و روند خرید روزانه</p>
           </div>
           <span class="result-card__badge">LIVE</span>
         </div>
+        <div class="result-mode">
+          <button type="button" class="mode-toggle active" data-result-mode="variable" data-i18n="resultVariable">نتیجه متغیر</button>
+          <button type="button" class="mode-toggle" data-result-mode="fixed" data-i18n="resultFixed">نتیجه ثابت</button>
+        </div>
         <div class="draw-balls" id="current-ticket"></div>
         <div class="draw-summary" id="day-result"></div>
+        <div class="result-form">
+          <label>
+            <span data-i18n="ticketsPerDay">تیکت در روز</span>
+            <input type="number" id="tickets-per-day" min="0" value="0" placeholder="0=نامحدود">
+          </label>
+          <label>
+            <span data-i18n="totalTickets">مجموع بلیت‌ها</span>
+            <input type="number" id="total-tickets" min="0" value="0" placeholder="0=نامحدود">
+          </label>
+        </div>
+        <div class="result-fixed-fields" id="result-fixed-fields" style="display:none">
+          <label>
+            <span data-i18n="fixedNumbersLabel">اعداد ثابت (با کاما):</span>
+            <input type="text" id="fixed-main-input" placeholder="7,12,18,25,32,36">
+          </label>
+          <label>
+            <span data-i18n="fixedBonusLabel">شماره بونوس:</span>
+            <input type="number" id="fixed-bonus-input" min="1" max="50">
+          </label>
+          <div class="result-fixed-preview" id="fixed-preview"></div>
+        </div>
       </div>
       <div class="panel resource-knobs">
-        <h3 data-i18n="resourceSettings">تنظیمات منابع</h3>
+        <h3 data-i18n="resourceSettings">تنظیمات عملکرد</h3>
         <div class="control-row">
           <label data-i18n="batchSize">اندازه دسته:</label>
-          <input type="number" id="batch-size" min="200" max="10000" value="2000">
+          <input type="number" id="batch-size" min="200" max="10000" value="1000">
         </div>
         <div class="control-row">
           <label data-i18n="uiDelay">تأخیر رابط:</label>
@@ -152,46 +167,50 @@
             <option value="custom" data-i18n="custom">سفارشی</option>
           </select>
         </div>
-        <div class="control-row">
-          <label data-i18n="maxMain">حد بالا:</label>
-          <input type="number" id="max-main" min="5" max="100" value="49">
+        <div class="game-grid">
+          <label>
+            <span data-i18n="maxMain">بازه اصلی (۱ تا N):</span>
+            <input type="number" id="max-main" min="5" max="100" value="49">
+          </label>
+          <label>
+            <span data-i18n="mainCount">تعداد اعداد (K):</span>
+            <input type="number" id="main-count" min="3" max="20" value="6">
+          </label>
         </div>
-        <div class="control-row">
-          <label data-i18n="mainCount">تعداد انتخاب:</label>
-          <input type="number" id="main-count" min="3" max="20" value="6">
-        </div>
-        <div class="control-row">
+        <div class="bonus-toggle">
           <label class="toggle">
             <input type="checkbox" id="has-bonus">
             <span data-i18n="hasBonus">شماره جایزه</span>
           </label>
+          <div class="bonus-fields" id="max-bonus-row" style="display:none">
+            <label>
+              <span data-i18n="maxBonus">حد بونوس:</span>
+              <input type="number" id="max-bonus" min="1" max="50" value="10">
+            </label>
+          </div>
         </div>
-        <div class="control-row" id="max-bonus-row" style="display:none">
-          <label data-i18n="maxBonus">حد بالای جایزه:</label>
-          <input type="number" id="max-bonus" min="1" max="50" value="10">
-        </div>
-        <div class="control-row">
+        <div class="pricing-row">
           <label data-i18n="ticketPrice">قیمت تیکت:</label>
-          <input type="number" id="ticket-price" min="0.01" step="0.01" value="2.00">
-          <span id="ticket-price-sym" class="unit">$</span>
-        </div>
-        <div class="control-row">
-          <label data-i18n="ticketsPerDay">تیکت/روز:</label>
-          <input type="number" id="tickets-per-day" min="0" value="0" placeholder="0=نامحدود">
-        </div>
-        <div class="control-row">
-          <label data-i18n="totalTickets">کل تیکت‌ها:</label>
-          <input type="number" id="total-tickets" min="0" value="0" placeholder="0=نامحدود">
+          <div class="pricing-input">
+            <input type="number" id="ticket-price" min="0.01" step="0.01" value="2.00">
+            <span id="ticket-price-sym" class="unit">$</span>
+          </div>
         </div>
       </div>
 
       <div class="panel prize-map">
-        <h3 data-i18n="prizeMap">نقشه جوایز</h3>
-        <p class="panel-description" data-i18n="prizeMapHint">پراِستی تنظیمات بازی را از همین‌جا به‌روزرسانی کنید و مقادیر جوایز را به‌سادگی بازبینی کنید.</p>
-        <div id="prize-map-visual" class="prize-visual"></div>
+        <div class="panel-headline">
+          <h3 data-i18n="prizeMap">تنظیمات جوایز</h3>
+          <button id="btn-generate-prize-map" class="btn btn-ghost" data-i18n="restoreDefaultPrizes">
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+            <span data-i18n="restoreDefaultPrizes">بازنشانی پیش‌فرض</span>
+          </button>
+        </div>
+        <p class="panel-description" data-i18n="prizeMapHint">سطوح جایزه را بر اساس نوع لاتاری تنظیم کنید.</p>
+        <div id="prize-map-visual" class="prize-tiers"></div>
         <details class="prize-raw">
-          <summary data-i18n="prizeMapRaw">ویرایش پیشرفته</summary>
-          <p class="panel-description" data-i18n="prizeMapRawHint">ساختار را با فرمت m[,b]=VALUE ویرایش کنید؛ از JACKPOT یا FREE_PLAY برای حالت‌های ویژه استفاده کنید.</p>
+          <summary data-i18n="prizeMapRaw">ویرایش دستی</summary>
+          <p class="panel-description" data-i18n="prizeMapRawHint">برای هر خط از الگوی m[,b]=VALUE استفاده کنید. مقادیر JACKPOT و FREE_PLAY نیز قابل قبول هستند.</p>
           <textarea id="prize-map-text" rows="8" placeholder="m[,b]=JACKPOT|FREE_PLAY|&lt;minor&gt;"></textarea>
           <div class="button-group">
             <button id="btn-parse-prize" class="btn btn-accent" data-i18n="parse">تجزیه</button>
@@ -199,91 +218,142 @@
           </div>
         </details>
       </div>
-
-      <div class="panel display-locale">
-        <h3 data-i18n="displayLocale">نمایش و زبان</h3>
-        <div class="control-row">
-          <label data-i18n="theme">تم:</label>
-          <select id="theme-select" data-hook="toggle-theme">
-            <option value="dark" data-i18n="dark">تاریک</option>
-            <option value="light" data-i18n="light">روشن</option>
-          </select>
-        </div>
-        <div class="control-row">
-          <label data-i18n="language">زبان:</label>
-          <select id="lang-select" data-hook="toggle-lang">
-            <option value="fa" data-i18n="persian">فارسی</option>
-            <option value="en" data-i18n="english">English</option>
-          </select>
-        </div>
-        <div class="control-row">
-          <button id="btn-currency" class="btn btn-accent" data-i18n="currency">ارز</button>
-        </div>
-      </div>
     </aside>
 
     <!-- Column 2: Ticket Builder & Live Purchase -->
     <section class="column col-ticket">
       <div class="panel ticket-builder">
-        <h3 data-i18n="ticketBuilder">سازنده تیکت</h3>
-        <div class="mode-selector">
-          <div class="segmented-control">
-            <button class="segmented-btn active" data-mode="select" data-i18n="select">انتخاب</button>
-            <button class="segmented-btn" data-mode="pin" data-i18n="pin">پین</button>
-            <button class="segmented-btn" data-mode="prefer" data-i18n="prefer">ترجیح</button>
-            <button class="segmented-btn" data-mode="exclude" data-i18n="exclude">حذف</button>
+        <header class="ticket-head">
+          <div>
+            <h3 data-i18n="ticketBuilder">انتخاب تیکت</h3>
+            <p class="ticket-head__subtitle" data-i18n="ticketBuilderHint">ابزار مناسب را انتخاب کنید و به صورت دقیق کارت خود را بچینید.</p>
+          </div>
+        </header>
+        <hr class="ticket-divider">
+        <div class="ticket-tools">
+          <span class="ticket-tool-label" data-i18n="ticketToolLabel">ابزار انتخاب کارت:</span>
+          <div class="ticket-toolbar" role="group">
+            <button class="tool-toggle active" data-mode="select" data-tooltip-key="toolManualTooltip" aria-label="انتخاب">
+              <i class="fa-solid fa-hand-pointer" aria-hidden="true"></i>
+            </button>
+            <button class="tool-toggle" data-mode="pin" data-tooltip-key="toolLockTooltip" aria-label="قفل">
+              <i class="fa-solid fa-lock" aria-hidden="true"></i>
+            </button>
+            <button class="tool-toggle" data-mode="prefer" data-tooltip-key="toolHotTooltip" aria-label="شانس بیشتر">
+              <i class="fa-solid fa-fire" aria-hidden="true"></i>
+            </button>
+            <button class="tool-toggle" data-mode="exclude" data-tooltip-key="toolRemoveTooltip" aria-label="حذف">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
-        <div class="ticket-controls">
-          <button id="btn-quick-pick" class="btn btn-primary" data-i18n="quickPick">انتخاب سریع</button>
-          <button id="btn-clear" class="btn btn-warn" data-i18n="clear">پاک کردن</button>
-          <button id="btn-clear-pinned" class="btn btn-sm" data-i18n="clearPinned">پاک کردن پین‌ها</button>
-          <button id="btn-clear-preferred" class="btn btn-sm" data-i18n="clearPreferred">پاک کردن ترجیحات</button>
-          <button id="btn-clear-excluded" class="btn btn-sm" data-i18n="clearExcluded">پاک کردن حذف‌ها</button>
-        </div>
-        <div class="counters">
-          <span class="counter-chip" id="pinned-counter">پین: 0/<span id="pinned-max">6</span></span>
-          <span class="counter-chip" id="preferred-counter">ترجیح: 0</span>
-          <span class="counter-chip" id="excluded-counter">حذف: 0</span>
+        <div class="ticket-legend">
+          <span class="legend-chip" id="pinned-counter">قفل: 0/<span id="pinned-max">6</span></span>
+          <span class="legend-chip" id="preferred-counter">شانس بیشتر: 0</span>
+          <span class="legend-chip" id="excluded-counter">حذف: 0</span>
         </div>
         <div class="number-grid" id="number-grid"></div>
-        <div class="ticket-actions">
-          <button id="btn-add-ticket" class="btn btn-primary" disabled data-i18n="addTicket">افزودن تیکت</button>
-          <button id="btn-clear-queue" class="btn btn-warn" data-i18n="clearQueue">پاک کردن صف</button>
+        <div class="ticket-primary-actions">
+          <button id="btn-random-pick" class="ticket-random-btn" data-i18n="randomSelect">
+            <i class="fa-solid fa-shuffle" aria-hidden="true"></i>
+            <span>انتخاب تصادفی</span>
+          </button>
+          <button id="btn-reset-grid" class="btn btn-ghost" data-i18n="resetSelection">
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+            <span>ریست انتخاب‌ها</span>
+          </button>
         </div>
-        <div class="range-selector">
-          <h4 data-i18n="rangeSelector">انتخاب محدوده</h4>
-          <div class="range-inputs">
-            <input type="number" id="range-min" placeholder="min" min="1">
-            <span>-</span>
-            <input type="number" id="range-max" placeholder="max">
-            <button id="btn-add-range" class="btn btn-sm" data-i18n="add">افزودن</button>
+        <div class="ticket-filters">
+          <span class="ticket-filters__label" data-i18n="filterHeading">فیلترها:</span>
+          <div class="filter-chips">
+            <button class="filter-chip" data-filter="even" data-i18n="filterEven">اعداد زوج</button>
+            <button class="filter-chip" data-filter="odd" data-i18n="filterOdd">اعداد فرد</button>
+            <button class="filter-chip" data-filter="prime" data-i18n="filterPrime">اعداد اول</button>
+            <button class="filter-chip" data-filter="low" data-i18n="filterLow">نیمه اول</button>
+            <button class="filter-chip" data-filter="high" data-i18n="filterHigh">نیمه دوم</button>
           </div>
-          <div class="filter-controls">
-            <label class="toggle">
-              <input type="checkbox" id="filter-even">
-              <span data-i18n="evenOnly">فقط زوج</span>
-            </label>
-            <label class="toggle">
-              <input type="checkbox" id="filter-odd">
-              <span data-i18n="oddOnly">فقط فرد</span>
-            </label>
+        </div>
+        <div class="queue-controls">
+          <div class="queue-controls__auto">
+            <label for="queue-count" data-i18n="queueCount">تعداد بلیت تصادفی</label>
+            <div class="queue-form">
+              <input type="number" id="queue-count" min="1" max="500" value="10">
+              <button id="btn-queue-random" class="btn btn-secondary" data-i18n="queueRandom">
+                <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                <span>افزودن به صف</span>
+              </button>
+            </div>
           </div>
-          <div class="smart-controls">
-            <input type="number" id="smart-count" min="1" placeholder="N" value="10">
-            <button id="btn-generate-range" class="btn btn-sm" data-i18n="generateTickets">تولید تیکت</button>
+          <div class="queue-controls__manual">
+            <button id="btn-add-ticket" class="btn btn-primary" disabled data-i18n="addTicket">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
+              <span>افزودن بلیت</span>
+            </button>
+            <button id="btn-clear-queue" class="btn btn-warn" data-i18n="clearQueue">
+              <i class="fa-solid fa-trash" aria-hidden="true"></i>
+              <span>پاکسازی صف</span>
+            </button>
           </div>
-          <div id="ranges-list" class="ranges-list"></div>
         </div>
         <div class="queue-display">
-          <h4 data-i18n="ticketQueue">صف تیکت‌ها</h4>
-          <div id="queue-chips" class="queue-chips"></div>
+          <h4 data-i18n="ticketQueue">صف بلیت‌ها</h4>
+          <div id="queue-chips" class="queue-chips" data-empty-label="هنوز بلیتی در صف نیست"></div>
         </div>
       </div>
     </section>
 
     <!-- Column 3: Analytics & Logs -->
-    <section class="column col-analytics">
+    <section class="column col-main">
+      <div class="panel sim-console">
+        <div class="sim-console__row">
+          <div class="header-status">
+            <span class="status-chip" id="status-chip" data-i18n="statusIdle">بیکار</span>
+            <div class="status-metrics">
+              <span class="status-metric" id="rate-display">0 <span data-i18n="ticketsSec">تیکت/ثانیه</span></span>
+              <span class="status-metric" id="elapsed-display">00:00:00</span>
+            </div>
+          </div>
+          <div class="sim-console__toggles">
+            <label class="toggle header-toggle">
+              <input type="checkbox" id="stop-on-jackpot">
+              <span data-i18n="stopOnJackpot">توقف در جکپات</span>
+            </label>
+            <div class="header-limit">
+              <label for="limit-kind" data-i18n="runLimit">حد اجرا</label>
+              <div class="limit-fields">
+                <select id="limit-kind">
+                  <option value="tickets" data-i18n="tickets">تیکت</option>
+                  <option value="minutes" data-i18n="minutes">دقیقه</option>
+                  <option value="days" data-i18n="days">روز</option>
+                </select>
+                <input type="number" id="limit-value" min="0" value="0" placeholder="0=نامحدود">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sim-console__actions">
+          <button id="btn-start" data-hook="btn-start" class="btn btn-primary">
+            <i class="fa-solid fa-play" aria-hidden="true"></i>
+            <span data-i18n="start">شروع</span>
+          </button>
+          <button id="btn-pause" data-hook="btn-pause" class="btn btn-secondary" disabled>
+            <i class="fa-solid fa-pause" aria-hidden="true"></i>
+            <span data-i18n="pause">توقف موقت</span>
+          </button>
+          <button id="btn-stop" data-hook="btn-stop" class="btn btn-danger" disabled>
+            <i class="fa-solid fa-stop" aria-hidden="true"></i>
+            <span data-i18n="stop">توقف</span>
+          </button>
+          <button id="btn-reset" data-hook="btn-reset" class="btn btn-warn">
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+            <span data-i18n="reset">بازنشانی</span>
+          </button>
+          <button id="btn-export" data-hook="btn-export" class="btn btn-accent">
+            <i class="fa-solid fa-download" aria-hidden="true"></i>
+            <span data-i18n="exportCsv">خروجی CSV</span>
+          </button>
+        </div>
+      </div>
       <div class="panel kpis">
         <h3 data-i18n="analytics">تحلیل</h3>
         <div class="kpi-grid">

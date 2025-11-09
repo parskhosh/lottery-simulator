@@ -2,7 +2,7 @@
 import { State, saveSettings, GAME_PRESETS, applyGamePreset } from './state.js';
 import { Currency, fmtDual, updateCurrencyDisplay } from './currency.js';
 import { T, switchLanguage } from './i18n.js';
-import { initGrid, updateGridConfig, quickPick, clearSelection, clearPinned, clearPreferred, clearExcluded, addTicket, clearQueue, getNextTicket, highlightMatches, pulseCurrentTicket } from './ticket.js';
+import { initGrid, updateGridConfig, quickPick, resetGrid, applyFilter, addTicket, addRandomTicketsToQueue, clearQueue, getNextTicket, highlightMatches, pulseCurrentTicket } from './ticket.js';
 import { initCharts, updateCharts } from './charts.js';
 import { initLogs, renderLogs, addLogEntry } from './logs.js';
 import { initPrizeMapEditor, updatePrizeMapUI } from './prize-map-editor.js';
@@ -24,6 +24,7 @@ function initUI() {
   
   setupControls();
   setupSettings();
+  setupResultControls();
   setupTicketBuilder();
   setupCurrencyModal();
   setupTheme();
@@ -87,15 +88,48 @@ function setupControls() {
   });
 }
 
-function renderCurrentTicket(numbers = []) {
+function setupResultControls() {
+  const buttons = document.querySelectorAll('[data-result-mode]');
+  if (buttons.length === 0) return;
+  enforceFixedResultBounds();
+  syncFixedInputs();
+  updateResultModeUI();
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.resultMode;
+      const isVariable = mode === 'variable';
+      State.settings.target = State.settings.target || {};
+      State.settings.target.dailyRandom = isVariable;
+      saveSettings();
+      updateResultModeUI();
+    });
+  });
+  const mainInput = document.getElementById('fixed-main-input');
+  const bonusInput = document.getElementById('fixed-bonus-input');
+  let timer = null;
+  mainInput?.addEventListener('input', (e) => {
+    clearTimeout(timer);
+    const value = e.target.value;
+    timer = setTimeout(() => persistFixedMainInput(value), 250);
+  });
+  bonusInput?.addEventListener('input', (e) => {
+    persistFixedBonusInput(e.target.value);
+  });
+}
+
+function renderCurrentTicket(ticket = []) {
   const container = document.getElementById('current-ticket');
   if (!container) return;
 
   const mainCount = State?.settings?.game?.mainCount || 0;
   const hasBonus = !!State?.settings?.game?.hasBonus;
-  const selectionFallback = Array.isArray(State?.selectedNumbers) ? [...State.selectedNumbers] : [];
-  const sourceNumbers = Array.isArray(numbers) && numbers.length > 0 ? [...numbers] : selectionFallback;
-  const sorted = sourceNumbers.sort((a, b) => a - b);
+  const fallbackMain = Array.from(new Set([
+    ...Array.from(State?.pinnedNumbers || []),
+    ...Array.from(State?.selectedNumbers || [])
+  ]));
+  const normalized = normalizeTicketPayload(ticket);
+  const source = normalized.main.length > 0 ? normalized.main : fallbackMain;
+  const sorted = [...source].sort((a, b) => a - b);
   const frag = document.createDocumentFragment();
 
   const createBall = (value, opts = {}) => {
@@ -128,7 +162,7 @@ function renderCurrentTicket(numbers = []) {
       plus.textContent = '+';
       frag.appendChild(plus);
 
-      const bonusValue = sorted[mainCount];
+      const bonusValue = Number.isFinite(normalized.bonus) ? normalized.bonus : sorted[mainCount];
       const bonusPlaceholder = typeof bonusValue !== 'number' || Number.isNaN(bonusValue);
       frag.appendChild(createBall(bonusValue, { bonus: true, placeholder: bonusPlaceholder }));
     }
@@ -137,12 +171,27 @@ function renderCurrentTicket(numbers = []) {
   container.innerHTML = '';
   container.appendChild(frag);
 
-  const hasNumbers = sourceNumbers.length > 0;
+  const hasNumbers = sorted.length > 0;
   container.classList.toggle('is-placeholder', !hasNumbers);
   if (hasNumbers) {
     container.classList.add('is-updated');
     setTimeout(() => container.classList.remove('is-updated'), 650);
   }
+}
+
+function normalizeTicketPayload(payload) {
+  if (!payload) return { main: [], bonus: null };
+  if (Array.isArray(payload)) return { main: [...payload], bonus: null };
+  if (payload && Array.isArray(payload.main)) {
+    return {
+      main: [...payload.main],
+      bonus: Number.isFinite(payload.bonus) ? payload.bonus : null
+    };
+  }
+  if (payload && Array.isArray(payload.selected)) {
+    return { main: [...payload.selected], bonus: null };
+  }
+  return { main: [], bonus: null };
 }
 
 function renderPresetOptions() {
@@ -251,6 +300,9 @@ function setupSettings() {
       if (preset) {
         saveSettings();
         renderPresetOptions();
+        enforceFixedResultBounds();
+        syncFixedInputs();
+        updateResultModeUI();
         updateUIFromState();
         const event = new CustomEvent('gameSettingsChanged');
         document.dispatchEvent(event);
@@ -263,6 +315,8 @@ function setupSettings() {
     updateGridConfig(State.settings.game.maxMain, State.settings.game.mainCount);
     renderCurrentTicket(State.currentTicket);
     markCustomPreset();
+    enforceFixedResultBounds();
+    syncFixedInputs();
     saveSettings();
   });
   
@@ -271,6 +325,8 @@ function setupSettings() {
     updateGridConfig(State.settings.game.maxMain, State.settings.game.mainCount);
     renderCurrentTicket(State.currentTicket);
     markCustomPreset();
+    enforceFixedResultBounds();
+    syncFixedInputs();
     saveSettings();
     
     // Trigger prize map update
@@ -284,12 +340,16 @@ function setupSettings() {
     if (row) row.style.display = e.target.checked ? 'block' : 'none';
     renderCurrentTicket(State.currentTicket);
     markCustomPreset();
+    enforceFixedResultBounds();
+    syncFixedInputs();
     saveSettings();
   });
   
   document.getElementById('max-bonus')?.addEventListener('input', (e) => {
     State.settings.game.maxBonus = parseInt(e.target.value) || 10;
     markCustomPreset();
+    enforceFixedResultBounds();
+    syncFixedInputs();
     saveSettings();
   });
   
@@ -339,23 +399,27 @@ function setupTicketBuilder() {
     };
   };
   
-  document.getElementById('btn-quick-pick')?.addEventListener('click', guardHandler(quickPick));
-  document.getElementById('btn-clear')?.addEventListener('click', guardHandler(clearSelection));
-  document.getElementById('btn-clear-pinned')?.addEventListener('click', guardHandler(clearPinned));
-  document.getElementById('btn-clear-preferred')?.addEventListener('click', guardHandler(clearPreferred));
-  document.getElementById('btn-clear-excluded')?.addEventListener('click', guardHandler(clearExcluded));
+  document.getElementById('btn-random-pick')?.addEventListener('click', guardHandler(quickPick));
+  document.getElementById('btn-reset-grid')?.addEventListener('click', guardHandler(resetGrid));
   document.getElementById('btn-add-ticket')?.addEventListener('click', guardHandler(addTicket));
   document.getElementById('btn-clear-queue')?.addEventListener('click', guardHandler(clearQueue));
+  document.getElementById('btn-queue-random')?.addEventListener('click', guardHandler(() => {
+    const value = parseInt(document.getElementById('queue-count')?.value, 10) || 1;
+    addRandomTicketsToQueue(value);
+  }));
   
-  // Range selector
-  document.getElementById('btn-add-range')?.addEventListener('click', guardHandler(addRange));
-  document.getElementById('btn-generate-range')?.addEventListener('click', guardHandler(generateRangeTickets));
+  document.querySelectorAll('.filter-chip').forEach((chip) => {
+    chip.addEventListener('click', guardHandler(() => {
+      applyFilter(chip.dataset.filter);
+    }));
+  });
   
   // Log row hover
   document.addEventListener('logRowHover', (e) => {
     const { row } = e.detail;
-    if (row.ticket) {
-      highlightMatches(row.ticket);
+    const ticket = row.ticket || row.main;
+    if (ticket) {
+      highlightMatches(ticket);
     }
   });
 }
@@ -387,9 +451,20 @@ function setupCurrencyModal() {
 // Setup theme - now handled by controller.js
 function setupTheme() {
   const select = document.getElementById('theme-select');
+  const toggle = document.getElementById('theme-toggle');
   const saved = localStorage.getItem('lsim.theme') || 'dark';
   if (select) select.value = saved;
-  // Theme is set by controller.js bindings
+  if (toggle) toggle.checked = saved === 'light';
+  if (toggle && select) {
+    toggle.addEventListener('change', () => {
+      const value = toggle.checked ? 'light' : 'dark';
+      select.value = value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    select.addEventListener('change', () => {
+      toggle.checked = select.value === 'light';
+    });
+  }
 }
 
 // Setup i18n - now handled by controller.js
@@ -436,21 +511,6 @@ function saveCurrencyFromModal() {
   Currency.showBoth = document.getElementById('show-both-currency').checked;
   
   import('./currency.js').then(m => m.saveCurrency());
-}
-
-// Add range
-function addRange() {
-  const min = parseInt(document.getElementById('range-min')?.value) || 1;
-  const max = parseInt(document.getElementById('range-max')?.value) || maxNumber;
-  // Range logic would be stored in State.settings.filters
-  showToast(`Range ${min}-${max} added`, 'info');
-}
-
-// Generate range tickets
-function generateRangeTickets() {
-  const count = parseInt(document.getElementById('smart-count')?.value) || 10;
-  // Generate tickets based on ranges
-  showToast(`Generated ${count} tickets`, 'info');
 }
 
 // Initialize worker (or use controller's worker)
@@ -514,16 +574,16 @@ function handleWorkerTick(data) {
   updateDayResult();
   
   // Pulse current ticket (last one in batch)
-  if (rows.length > 0 && rows[rows.length - 1].ticket) {
-    State.currentTicket = rows[rows.length - 1].ticket;
-    renderCurrentTicket(State.currentTicket);
-    pulseCurrentTicket(State.currentTicket);
-    
-    // Highlight matches if any
+  if (rows.length > 0) {
     const lastRow = rows[rows.length - 1];
+    const ticketPayload = lastRow.ticket || lastRow.main || [];
+    State.currentTicket = ticketPayload;
+    renderCurrentTicket(ticketPayload);
+    pulseCurrentTicket(ticketPayload);
+    
     if (lastRow.matches > 0) {
       setTimeout(() => {
-        highlightMatches(rows[rows.length - 1].ticket);
+        highlightMatches(ticketPayload);
       }, 100);
     }
   }
@@ -704,6 +764,8 @@ function updateUIFromState() {
   document.getElementById('tickets-per-day').value = s.pricing.ticketsPerDay;
   document.getElementById('total-tickets').value = s.pricing.totalTickets;
   document.getElementById('prize-map-text').value = s.prizeMap;
+  syncFixedInputs();
+  updateResultModeUI();
   
   updateGridConfig(s.game.maxMain, s.game.mainCount);
   updateKPIs();
@@ -750,3 +812,116 @@ document.addEventListener('presetChanged', (e) => {
 });
 
 export { initUI, showToast };
+
+function updateResultModeUI() {
+  const isVariable = Boolean(State.settings.target?.dailyRandom);
+  document.querySelectorAll('[data-result-mode]').forEach((btn) => {
+    const variableMode = btn.dataset.resultMode === 'variable';
+    btn.classList.toggle('active', variableMode === isVariable);
+  });
+  const fixedFields = document.getElementById('result-fixed-fields');
+  if (fixedFields) {
+    fixedFields.style.display = isVariable ? 'none' : 'flex';
+  }
+  renderFixedPreview();
+}
+
+function renderFixedPreview() {
+  const container = document.getElementById('fixed-preview');
+  if (!container) return;
+  const isVariable = Boolean(State.settings.target?.dailyRandom);
+  container.innerHTML = '';
+  container.style.display = isVariable ? 'none' : 'flex';
+  if (isVariable) return;
+  const fixed = Array.isArray(State.settings.target?.fixedMain)
+    ? State.settings.target.fixedMain
+    : [];
+  const frag = document.createDocumentFragment();
+  fixed.forEach((num) => {
+    const span = document.createElement('span');
+    span.className = 'draw-ball';
+    span.textContent = String(num).padStart(2, '0');
+    frag.appendChild(span);
+  });
+  if (State.settings.game.hasBonus && Number.isFinite(State.settings.target?.fixedBonus)) {
+    const plus = document.createElement('span');
+    plus.className = 'draw-split';
+    plus.textContent = '+';
+    frag.appendChild(plus);
+    const bonus = document.createElement('span');
+    bonus.className = 'draw-ball bonus';
+    bonus.textContent = String(State.settings.target.fixedBonus).padStart(2, '0');
+    frag.appendChild(bonus);
+  }
+  container.appendChild(frag);
+}
+
+function persistFixedMainInput(value) {
+  State.settings.target = State.settings.target || {};
+  const max = State.settings.game.maxMain;
+  const count = State.settings.game.mainCount;
+  const numbers = value
+    .split(/[\s,]+/)
+    .map((n) => parseInt(n, 10))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= max);
+  const unique = [];
+  numbers.forEach((n) => {
+    if (!unique.includes(n)) unique.push(n);
+  });
+  State.settings.target.fixedMain = unique.slice(0, count);
+  saveSettings();
+  syncFixedInputs();
+}
+
+function persistFixedBonusInput(value) {
+  State.settings.target = State.settings.target || {};
+  if (!State.settings.game.hasBonus) {
+    State.settings.target.fixedBonus = null;
+  } else {
+    const parsed = parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= State.settings.game.maxBonus) {
+      State.settings.target.fixedBonus = parsed;
+    } else {
+      State.settings.target.fixedBonus = null;
+    }
+  }
+  saveSettings();
+  syncFixedInputs();
+}
+
+function syncFixedInputs() {
+  const mainInput = document.getElementById('fixed-main-input');
+  const bonusInput = document.getElementById('fixed-bonus-input');
+  if (mainInput) {
+    mainInput.value = Array.isArray(State.settings.target?.fixedMain)
+      ? State.settings.target.fixedMain.join(', ')
+      : '';
+  }
+  if (bonusInput) {
+    bonusInput.value = Number.isFinite(State.settings.target?.fixedBonus)
+      ? State.settings.target.fixedBonus
+      : '';
+  }
+  renderFixedPreview();
+}
+
+function enforceFixedResultBounds() {
+  State.settings.target = State.settings.target || {};
+  const max = State.settings.game.maxMain;
+  const count = State.settings.game.mainCount;
+  const filtered = Array.isArray(State.settings.target.fixedMain)
+    ? State.settings.target.fixedMain
+        .map((n) => parseInt(n, 10))
+        .filter((n) => Number.isFinite(n) && n >= 1 && n <= max)
+    : [];
+  State.settings.target.fixedMain = filtered.slice(0, count);
+  if (!State.settings.game.hasBonus) {
+    State.settings.target.fixedBonus = null;
+  } else if (
+    !Number.isFinite(State.settings.target.fixedBonus) ||
+    State.settings.target.fixedBonus < 1 ||
+    State.settings.target.fixedBonus > State.settings.game.maxBonus
+  ) {
+    State.settings.target.fixedBonus = null;
+  }
+}

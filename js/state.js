@@ -97,7 +97,9 @@ const DEFAULT_SETTINGS = {
   game: { ...GAME_PRESETS.classic6.game },
   target: {
     dailyRandom: false,
-    dailyBonus: false
+    dailyBonus: false,
+    fixedMain: [],
+    fixedBonus: null
   },
   perf: {
     logCap: 50000,
@@ -111,7 +113,7 @@ const DEFAULT_SETTINGS = {
     ticketPrice: GAME_PRESETS.classic6.pricing.ticketPrice,
     ticketsPerDay: 0,
     totalTickets: 0,
-    batchSize: 2000,
+    batchSize: 1000,
     uiDelay: 200
   },
   filters: {
@@ -457,3 +459,16 @@ export {
   normalizeSettings,
   applyGamePreset
 };
+  normalized.target.fixedMain = Array.isArray(normalized.target.fixedMain)
+    ? normalized.target.fixedMain
+        .map((n) => ensureInt(n, 0))
+        .filter((n) => n >= 1 && n <= normalized.game.maxMain)
+        .slice(0, normalized.game.mainCount)
+    : [];
+  if (normalized.game.hasBonus) {
+    const bonus = ensureInt(normalized.target.fixedBonus, null);
+    normalized.target.fixedBonus =
+      Number.isFinite(bonus) && bonus >= 1 && bonus <= normalized.game.maxBonus ? bonus : null;
+  } else {
+    normalized.target.fixedBonus = null;
+  }
